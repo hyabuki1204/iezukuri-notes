@@ -7,7 +7,7 @@
 - ヘッダー3数字: 未確定 = `status <= 1` / 図面未反映 = `status >= 2 && !drawn` / 未質問 = `!done`
 - JSON I/O: ヘッダーメニュー。タブ骨組みの直後に入れる
 - 写真・スクショ・PDF: Phase 1 はやらない
-- 共有: white-tee-ec の `iezukuri_*` テーブル。世帯コード。ログインなし
+- 共有: white-tee-ec の `iezukuri_*`。家は1件固定。ログインも世帯コードもなし
 - kanemasa-fabric-os は触らない
 - RLS は anon 全開（世帯UUIDが秘密）。white-tee-ec を公開ECにする前に締める
 - 議事録: `raw`（原文）を持つ。原文から5項目を LLM で抽出する。抽出結果は手編集できる

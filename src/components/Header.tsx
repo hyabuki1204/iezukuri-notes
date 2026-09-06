@@ -4,13 +4,10 @@ import { headerStats } from '../lib/stats.ts'
 import { parseImportedJson } from '../storage/local.ts'
 
 export function Header() {
-  const { data, replace, householdId, cloud, cloudMessage, joinHousehold } =
-    useData()
+  const { data, replace, cloud, cloudMessage } = useData()
   const stats = headerStats(data)
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const [joining, setJoining] = useState(false)
-  const [joinCode, setJoinCode] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   function exportJson() {
@@ -47,31 +44,6 @@ export function Header() {
     setOpen(false)
   }
 
-  async function copyHousehold() {
-    if (!householdId) return
-    await navigator.clipboard.writeText(householdId)
-    setMessage('世帯コードをコピーした。もう1台のメニューから入れてください。')
-    setOpen(false)
-  }
-
-  async function submitJoin() {
-    if (
-      householdId &&
-      !window.confirm('今の家を離れて、このコードの家に入りますか？')
-    ) {
-      return
-    }
-    try {
-      await joinHousehold(joinCode)
-      setJoining(false)
-      setJoinCode('')
-      setMessage('この家に入りました。')
-      setOpen(false)
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '入れませんでした')
-    }
-  }
-
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-paper/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
       <div className="flex items-start justify-between gap-3">
@@ -95,7 +67,7 @@ export function Header() {
             メニュー
           </button>
           {open ? (
-            <div className="absolute right-0 z-30 mt-1 w-52 rounded-sm border border-line bg-card py-1">
+            <div className="absolute right-0 z-30 mt-1 w-44 rounded-sm border border-line bg-card py-1">
               <button
                 type="button"
                 className="block w-full px-3 py-2 text-left text-sm text-ink"
@@ -110,24 +82,6 @@ export function Header() {
               >
                 JSONを読み込む
               </button>
-              {householdId ? (
-                <button
-                  type="button"
-                  className="block w-full px-3 py-2 text-left text-sm text-ink"
-                  onClick={() => void copyHousehold()}
-                >
-                  世帯コードをコピー
-                </button>
-              ) : null}
-              {cloud !== 'local' ? (
-                <button
-                  type="button"
-                  className="block w-full px-3 py-2 text-left text-sm text-ink"
-                  onClick={() => setJoining(true)}
-                >
-                  別の家に入る
-                </button>
-              ) : null}
             </div>
           ) : null}
           <input
@@ -139,33 +93,6 @@ export function Header() {
           />
         </div>
       </div>
-
-      {joining ? (
-        <div className="mt-3 space-y-2 rounded-sm border border-line bg-card p-3">
-          <input
-            className="w-full rounded-sm border border-line bg-paper px-3 py-2 text-sm"
-            value={joinCode}
-            placeholder="世帯コード"
-            onChange={(event) => setJoinCode(event.target.value)}
-          />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="flex-1 rounded-sm bg-green py-2 text-sm text-card"
-              onClick={() => void submitJoin()}
-            >
-              入る
-            </button>
-            <button
-              type="button"
-              className="flex-1 rounded-sm border border-line py-2 text-sm text-muted"
-              onClick={() => setJoining(false)}
-            >
-              やめる
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <dl className="mt-3 grid grid-cols-3 gap-2">
         <Stat label="未確定" value={stats.undecided} />

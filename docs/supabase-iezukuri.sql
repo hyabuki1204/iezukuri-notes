@@ -7,6 +7,11 @@ create table if not exists public.iezukuri_households (
   created_at timestamptz not null default now()
 );
 
+-- 家は1件だけ。アプリ側もこのIDを固定している。
+insert into public.iezukuri_households (id)
+values ('7e2a1c0a-0f3e-4b9a-9c1d-a1b2c3d4e5f6')
+on conflict (id) do nothing;
+
 create table if not exists public.iezukuri_decisions (
   id uuid primary key,
   household_id uuid not null references public.iezukuri_households (id) on delete cascade,
