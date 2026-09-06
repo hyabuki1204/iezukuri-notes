@@ -100,10 +100,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setData(next)
         await local.save(next)
         remoteRef.current = remote
-        unsubscribe = remote.subscribe((incoming) => {
-          setData(incoming)
-          void local.save(incoming)
-        })
+        try {
+          unsubscribe = remote.subscribe((incoming) => {
+            setData(incoming)
+            void local.save(incoming)
+          })
+        } catch {
+          unsubscribe = () => {}
+        }
         setCloud('connected')
         setCloudMessage(null)
       } catch (error: unknown) {

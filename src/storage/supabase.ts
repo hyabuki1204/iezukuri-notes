@@ -165,37 +165,24 @@ export class SupabaseStore implements Store {
     const client = getSupabase()
     const hid = this.householdId
     this.unsubscribe()
-    this.channel = client
-      .channel(`iezukuri:${hid}`)
-      .on(
+    const channel = client.channel(`iezukuri:${hid}:${crypto.randomUUID()}`)
+    const reload = () => {
+      void this.load().then(onChange)
+    }
+    for (const table of [
+      'iezukuri_decisions',
+      'iezukuri_questions',
+      'iezukuri_ideas',
+      'iezukuri_minutes',
+    ]) {
+      channel.on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'iezukuri_decisions', filter: `household_id=eq.${hid}` },
-        () => {
-          void this.load().then(onChange)
-        },
+        { event: '*', schema: 'public', table, filter: `household_id=eq.${hid}` },
+        reload,
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'iezukuri_questions', filter: `household_id=eq.${hid}` },
-        () => {
-          void this.load().then(onChange)
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'iezukuri_ideas', filter: `household_id=eq.${hid}` },
-        () => {
-          void this.load().then(onChange)
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'iezukuri_minutes', filter: `household_id=eq.${hid}` },
-        () => {
-          void this.load().then(onChange)
-        },
-      )
-      .subscribe()
+    }
+    channel.subscribe()
+    this.channel = channel
 
     return () => this.unsubscribe()
   }
