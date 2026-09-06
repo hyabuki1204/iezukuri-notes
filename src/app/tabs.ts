@@ -7,3 +7,5 @@ export const TABS: { id: Tab; label: string; tone: string }[] = [
   { id: 'minutes', label: '議事録', tone: 'green' },
   { id: 'docs', label: '資料', tone: 'blue' },
 ]
+
+export const MAIN_TABS = TABS.filter((tab) => tab.id !== 'docs')

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
+import { WhoField, WhoStamp } from '../components/WhoField.tsx'
 import { useData } from '../app/DataProvider.tsx'
-import { removeAttachments } from '../lib/files.ts'
+import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
+import { firstLine } from '../lib/preview.ts'
 import { DOC_KINDS, type Doc, type DocKind } from '../storage/types.ts'
 
 function emptyDoc(): Doc {
@@ -14,6 +16,7 @@ function emptyDoc(): Doc {
     note: '',
     attachments: [],
     createdAt: nowIso(),
+    who: '自分',
   }
 }
 
@@ -65,7 +68,11 @@ export function DocsScreen() {
 
   function remove(item: Doc) {
     if (!window.confirm('この資料を削除しますか？')) return
-    void removeAttachments(item.attachments)
+    const remaining = {
+      ...data,
+      docs: data.docs.filter((row) => row.id !== item.id),
+    }
+    void removeAttachments(item.attachments, keepPaths(remaining))
     update((current) => ({
       ...current,
       docs: current.docs.filter((row) => row.id !== item.id),
@@ -126,8 +133,16 @@ export function DocsScreen() {
               className="w-full px-3 py-3 text-left"
               onClick={() => toggle(item.id)}
             >
-              <span className="block text-sm text-ink">{item.title}</span>
+              <span className="flex items-start justify-between gap-3">
+                <span className="block text-sm text-ink">{item.title}</span>
+                <WhoStamp who={item.who} />
+              </span>
               <span className="mt-0.5 block text-xs text-muted">{item.kind}</span>
+              {item.note ? (
+                <span className="mt-0.5 block text-xs text-muted">
+                  {firstLine(item.note)}
+                </span>
+              ) : null}
               <AttachmentHint files={item.attachments} />
             </button>
             {openIds.has(item.id) ? (
@@ -161,6 +176,10 @@ function DocFields({
 }) {
   return (
     <div className="space-y-3">
+      <WhoField
+        value={value.who}
+        onChange={(who) => onChange({ ...value, who })}
+      />
       <SelectField
         label="種類"
         value={value.kind}

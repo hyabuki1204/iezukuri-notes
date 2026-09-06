@@ -1,6 +1,6 @@
 import { HOUSEHOLD_ID, isSupabaseConfigured } from '../storage/config.ts'
 import { getSupabase } from '../storage/client.ts'
-import type { Attachment } from '../storage/types.ts'
+import { allAttachments, type AppData, type Attachment } from '../storage/types.ts'
 import { deleteLocalBlob, getLocalBlob, putLocalBlob } from './localFiles.ts'
 import { newId, nowIso } from './ids.ts'
 
@@ -87,9 +87,31 @@ async function uploadOne(ownerId: string, file: File): Promise<Attachment> {
   return attachment
 }
 
-export async function removeAttachment(file: Attachment): Promise<void> {
+export function borrowAttachment(file: Attachment): Attachment {
+  return {
+    ...file,
+    id: newId(),
+    createdAt: nowIso(),
+    link: true,
+  }
+}
+
+export function keepPaths(data: AppData, exceptIds: string[] = []): Set<string> {
+  return new Set(
+    allAttachments(data)
+      .filter((item) => !exceptIds.includes(item.id))
+      .map((item) => item.path),
+  )
+}
+
+export async function removeAttachment(
+  file: Attachment,
+  usedPaths: Iterable<string> = [],
+): Promise<void> {
+  const keep = usedPaths instanceof Set ? usedPaths : new Set(usedPaths)
+  if (keep.has(file.path)) return
   if (file.path.startsWith('local:')) {
-    await deleteLocalBlob(file.id)
+    await deleteLocalBlob(file.path.slice('local:'.length))
     return
   }
   if (isSupabaseConfigured() && file.path) {
@@ -98,8 +120,12 @@ export async function removeAttachment(file: Attachment): Promise<void> {
   }
 }
 
-export async function removeAttachments(files: Attachment[]): Promise<void> {
-  await Promise.all(files.map((file) => removeAttachment(file)))
+export async function removeAttachments(
+  files: Attachment[],
+  usedPaths: Iterable<string> = [],
+): Promise<void> {
+  const keep = usedPaths instanceof Set ? usedPaths : new Set(usedPaths)
+  await Promise.all(files.map((file) => removeAttachment(file, keep)))
 }
 
 export async function attachmentUrl(file: Attachment): Promise<string> {

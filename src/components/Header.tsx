@@ -1,17 +1,33 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useData } from '../app/DataProvider.tsx'
 import { dueUrgency } from '../lib/due.ts'
 import { headerStats } from '../lib/stats.ts'
 import { parseImportedJson } from '../storage/local.ts'
+import { NavIcon } from './NavIcon.tsx'
 import { NavTabs } from './NavTabs.tsx'
 
 export function Header() {
-  const { data, replace, cloud, cloudMessage } = useData()
+  const { data, replace, cloud, cloudMessage, go, tab, setTab } = useData()
   const stats = headerStats(data)
   const urgentCount = data.decisions.filter((item) => dueUrgency(item.due)).length
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    let ticking = false
+    function onScroll() {
+      if (ticking) return
+      ticking = true
+      window.requestAnimationFrame(() => {
+        setCollapsed(window.scrollY > 40)
+        ticking = false
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   function exportJson() {
     const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -48,7 +64,7 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-card/95 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-line bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 md:px-8">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-blue text-card">
@@ -77,7 +93,19 @@ export function Header() {
           <NavTabs variant="header" />
         </nav>
 
-        <div className="relative ml-auto">
+        <div className="relative ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            className={`flex h-10 w-10 items-center justify-center rounded-sm border ${
+              tab === 'docs'
+                ? 'border-blue bg-soft-blue text-blue'
+                : 'border-line bg-paper text-ink'
+            }`}
+            aria-label="資料"
+            onClick={() => setTab('docs')}
+          >
+            <NavIcon id="docs" className="h-4 w-4" />
+          </button>
           <button
             type="button"
             className="rounded-sm border border-line bg-paper px-3 py-2 text-xs font-medium text-ink"
@@ -87,7 +115,7 @@ export function Header() {
             メニュー
           </button>
           {open ? (
-            <div className="absolute right-0 z-30 mt-1 w-44 overflow-hidden rounded-sm border border-line bg-card py-1 shadow-sm">
+            <div className="absolute right-0 z-30 mt-1 w-44 overflow-hidden rounded-sm border border-line bg-card py-1 shadow-sm top-full">
               <button
                 type="button"
                 className="block w-full px-3 py-2 text-left text-sm text-ink"
@@ -114,19 +142,42 @@ export function Header() {
         </div>
       </div>
 
-      <dl className="mx-auto grid max-w-6xl grid-cols-3 gap-2 px-4 pb-3 md:px-8">
-        <Stat label="未確定" value={stats.undecided} tone="text-blue" />
-        <Stat label="図面未反映" value={stats.undrawn} tone="text-orange" />
-        <Stat label="未質問" value={stats.openQuestions} tone="text-purple" />
-      </dl>
+      {collapsed ? null : (
+        <>
+          <dl className="mx-auto grid max-w-6xl grid-cols-3 gap-2 px-4 pb-3 md:px-8">
+            <Stat
+              label="未確定"
+              value={stats.undecided}
+              tone="text-blue"
+              onClick={() => go({ tab: 'decisions', filter: 'undecided' })}
+            />
+            <Stat
+              label="図面未反映"
+              value={stats.undrawn}
+              tone="text-orange"
+              onClick={() => go({ tab: 'decisions', filter: 'undrawn' })}
+            />
+            <Stat
+              label="未質問"
+              value={stats.openQuestions}
+              tone="text-purple"
+              onClick={() => go({ tab: 'questions' })}
+            />
+          </dl>
 
-      {urgentCount > 0 ? (
-        <div className="mx-auto max-w-6xl px-4 pb-3 md:px-8">
-          <p className="rounded-sm bg-peach px-3 py-2 text-sm text-timber">
-            期限が近い・過ぎた決定が {urgentCount} 件あります
-          </p>
-        </div>
-      ) : null}
+          {urgentCount > 0 ? (
+            <div className="mx-auto max-w-6xl px-4 pb-3 md:px-8">
+              <button
+                type="button"
+                className="w-full rounded-sm bg-peach px-3 py-2 text-left text-sm text-timber"
+                onClick={() => go({ tab: 'decisions', urgent: true })}
+              >
+                期限が近い・過ぎた決定が {urgentCount} 件あります
+              </button>
+            </div>
+          ) : null}
+        </>
+      )}
 
       {message || cloudMessage ? (
         <p className="mx-auto max-w-6xl px-4 pb-3 text-xs text-muted md:px-8">
@@ -141,15 +192,21 @@ function Stat({
   label,
   value,
   tone,
+  onClick,
 }: {
   label: string
   value: number
   tone: string
+  onClick: () => void
 }) {
   return (
-    <div className="rounded-sm border border-line bg-paper px-2 py-2 text-center">
-      <dt className="text-[10px] text-muted">{label}</dt>
-      <dd className={`text-xl font-bold ${tone}`}>{value}</dd>
-    </div>
+    <button
+      type="button"
+      className="rounded-sm border border-line bg-paper px-2 py-2 text-center"
+      onClick={onClick}
+    >
+      <span className="block text-[10px] text-muted">{label}</span>
+      <span className={`block text-xl font-bold ${tone}`}>{value}</span>
+    </button>
   )
 }

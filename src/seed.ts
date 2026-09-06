@@ -3,17 +3,29 @@ import type { AppData, Decision, Question } from './storage/types.ts'
 const UPDATED = '2026-09-06T00:00:00.000Z'
 
 function decision(
-  partial: Omit<Decision, 'updatedAt' | 'drawn' | 'attachments'> & {
+  partial: Omit<Decision, 'updatedAt' | 'drawn' | 'attachments' | 'who'> & {
     drawn?: boolean
   },
 ): Decision {
-  return { drawn: false, updatedAt: UPDATED, attachments: [], ...partial }
+  return {
+    drawn: false,
+    updatedAt: UPDATED,
+    attachments: [],
+    who: '自分',
+    ...partial,
+  }
 }
 
 function question(
-  partial: Omit<Question, 'answer' | 'done' | 'attachments'>,
+  partial: Omit<Question, 'answer' | 'done' | 'attachments' | 'who'>,
 ): Question {
-  return { answer: '', done: false, attachments: [], ...partial }
+  return {
+    answer: '',
+    done: false,
+    attachments: [],
+    who: '自分',
+    ...partial,
+  }
 }
 
 export function seedData(): AppData {

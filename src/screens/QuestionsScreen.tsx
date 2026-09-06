@@ -2,13 +2,16 @@ import { useState } from 'react'
 import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { Modal } from '../components/Modal.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
+import { WhoField, WhoStamp } from '../components/WhoField.tsx'
 import { useData } from '../app/DataProvider.tsx'
 import { newId, nowIso } from '../lib/ids.ts'
+import { firstLine } from '../lib/preview.ts'
 import {
   ASSIGNEES,
   CATEGORIES,
   type Assignee,
   type Question,
+  type Who,
 } from '../storage/types.ts'
 
 export function QuestionsScreen() {
@@ -21,6 +24,7 @@ export function QuestionsScreen() {
     to: '営業' as Assignee,
     text: '',
     attachments: [] as Question['attachments'],
+    who: '自分' as Who,
   })
   const [promote, setPromote] = useState<Question | null>(null)
   const [promoteCat, setPromoteCat] = useState<string>('キッチン')
@@ -60,6 +64,7 @@ export function QuestionsScreen() {
           answer: '',
           done: false,
           attachments: draft.attachments,
+          who: draft.who,
         },
         ...current.questions,
       ],
@@ -69,6 +74,7 @@ export function QuestionsScreen() {
       to: '営業',
       text: '',
       attachments: [],
+      who: '自分',
     })
     setAdding(false)
   }
@@ -96,6 +102,7 @@ export function QuestionsScreen() {
           drawn: false,
           updatedAt: nowIso(),
           attachments: promote.attachments,
+          who: promote.who,
         },
         ...current.decisions,
       ],
@@ -114,6 +121,10 @@ export function QuestionsScreen() {
       </button>
       {adding ? (
         <div className="panel mt-3 space-y-3 md:max-w-xl">
+          <WhoField
+            value={draft.who}
+            onChange={(who) => setDraft({ ...draft, who })}
+          />
           <SelectField
             label="宛先"
             value={draft.to}
@@ -241,14 +252,26 @@ function QuestionCard({
         onClick={onToggle}
       >
         <span>
-          <span className="block text-sm text-ink">{item.text}</span>
+          <span className="flex items-start justify-between gap-3">
+            <span className="block text-sm text-ink">{item.text}</span>
+            <WhoStamp who={item.who} />
+          </span>
           <span className="mt-0.5 block text-xs text-muted">{item.to}</span>
+          {item.answer ? (
+            <span className="mt-0.5 block text-xs text-muted">
+              {firstLine(item.answer)}
+            </span>
+          ) : null}
           <AttachmentHint files={item.attachments} />
         </span>
         <span className="text-[10px] text-muted">{item.done ? '回答済' : '未'}</span>
       </button>
       {open ? (
         <div className="space-y-3 border-t border-line px-3 py-3">
+          <WhoField
+            value={item.who}
+            onChange={(who) => onPatch({ who })}
+          />
           <SelectField
             label="宛先"
             value={item.to}

@@ -23,7 +23,8 @@ create table if not exists public.iezukuri_decisions (
   cost numeric,
   due date,
   updated_at timestamptz not null,
-  attachments jsonb not null default '[]'::jsonb
+  attachments jsonb not null default '[]'::jsonb,
+  who text not null default '自分'
 );
 
 create table if not exists public.iezukuri_questions (
@@ -33,7 +34,8 @@ create table if not exists public.iezukuri_questions (
   text text not null,
   answer text not null default '',
   done boolean not null default false,
-  attachments jsonb not null default '[]'::jsonb
+  attachments jsonb not null default '[]'::jsonb,
+  who text not null default '自分'
 );
 
 create table if not exists public.iezukuri_ideas (
@@ -43,7 +45,8 @@ create table if not exists public.iezukuri_ideas (
   tag text not null default '',
   url text not null default '',
   created_at timestamptz not null,
-  attachments jsonb not null default '[]'::jsonb
+  attachments jsonb not null default '[]'::jsonb,
+  who text not null default '自分'
 );
 
 create table if not exists public.iezukuri_minutes (
@@ -57,7 +60,10 @@ create table if not exists public.iezukuri_minutes (
   their_todo text not null default '',
   pending text not null default '',
   newq text not null default '',
-  attachments jsonb not null default '[]'::jsonb
+  attachments jsonb not null default '[]'::jsonb,
+  who text not null default '自分',
+  sent_decided jsonb not null default '[]'::jsonb,
+  sent_newq jsonb not null default '[]'::jsonb
 );
 
 create table if not exists public.iezukuri_docs (
@@ -67,7 +73,8 @@ create table if not exists public.iezukuri_docs (
   kind text not null default 'その他',
   note text not null default '',
   attachments jsonb not null default '[]'::jsonb,
-  created_at timestamptz not null
+  created_at timestamptz not null,
+  who text not null default '自分'
 );
 
 create index if not exists iezukuri_decisions_household_idx

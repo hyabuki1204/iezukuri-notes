@@ -16,12 +16,22 @@ import { emptyAppData, type AppData } from '../storage/types.ts'
 
 export type Tab = 'decisions' | 'questions' | 'ideas' | 'minutes' | 'docs'
 export type CloudStatus = 'local' | 'connected' | 'error'
+export type DecisionFilter = 'all' | 'undecided' | 'undrawn'
+
+export type Jump = {
+  tab: Tab
+  filter?: DecisionFilter
+  urgent?: boolean
+}
 
 type DataContextValue = {
   data: AppData
   ready: boolean
   tab: Tab
   setTab: (tab: Tab) => void
+  go: (intent: Jump) => void
+  jump: Jump | null
+  consumeJump: () => void
   update: (fn: (data: AppData) => AppData) => void
   replace: (data: AppData) => void
   cloud: CloudStatus
@@ -35,6 +45,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(emptyAppData)
   const [ready, setReady] = useState(false)
   const [tab, setTab] = useState<Tab>('decisions')
+  const [jump, setJump] = useState<Jump | null>(null)
   const [cloud, setCloud] = useState<CloudStatus>('local')
   const [cloudMessage, setCloudMessage] = useState<string | null>(null)
   const remoteRef = useRef<SupabaseStore | null>(null)
@@ -147,18 +158,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [persist],
   )
 
+  const go = useCallback((intent: Jump) => {
+    setTab(intent.tab)
+    if (intent.tab === 'decisions' && (intent.filter || intent.urgent)) {
+      setJump(intent)
+    } else {
+      setJump(null)
+    }
+  }, [])
+
+  const consumeJump = useCallback(() => {
+    setJump(null)
+  }, [])
+
   const value = useMemo(
     () => ({
       data,
       ready,
       tab,
       setTab,
+      go,
+      jump,
+      consumeJump,
       update,
       replace,
       cloud,
       cloudMessage,
     }),
-    [data, ready, tab, update, replace, cloud, cloudMessage],
+    [
+      data,
+      ready,
+      tab,
+      go,
+      jump,
+      consumeJump,
+      update,
+      replace,
+      cloud,
+      cloudMessage,
+    ],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

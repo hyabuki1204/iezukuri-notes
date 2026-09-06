@@ -1,5 +1,11 @@
 import type { AppData } from './types.ts'
-import { asAttachments, asDocKind, emptyAppData } from './types.ts'
+import {
+  asAttachments,
+  asDocKind,
+  asStringList,
+  asWho,
+  emptyAppData,
+} from './types.ts'
 import type { Store } from './store.ts'
 
 export const STORAGE_KEY = 'iezukuri-notes:v1'
@@ -10,18 +16,21 @@ function normalize(data: Partial<AppData>): AppData {
       ? data.decisions.map((item) => ({
           ...item,
           attachments: asAttachments(item.attachments),
+          who: asWho(item.who),
         }))
       : [],
     questions: Array.isArray(data.questions)
       ? data.questions.map((item) => ({
           ...item,
           attachments: asAttachments(item.attachments),
+          who: asWho(item.who),
         }))
       : [],
     ideas: Array.isArray(data.ideas)
       ? data.ideas.map((item) => ({
           ...item,
           attachments: asAttachments(item.attachments),
+          who: asWho(item.who),
         }))
       : [],
     minutes: Array.isArray(data.minutes)
@@ -29,6 +38,9 @@ function normalize(data: Partial<AppData>): AppData {
           ...minute,
           raw: minute.raw ?? '',
           attachments: asAttachments(minute.attachments),
+          sentDecided: asStringList(minute.sentDecided),
+          sentNewq: asStringList(minute.sentNewq),
+          who: asWho(minute.who),
         }))
       : [],
     docs: Array.isArray(data.docs)
@@ -37,6 +49,7 @@ function normalize(data: Partial<AppData>): AppData {
           kind: asDocKind(doc.kind),
           note: doc.note ?? '',
           attachments: asAttachments(doc.attachments),
+          who: asWho(doc.who),
         }))
       : [],
   }

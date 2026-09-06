@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
+import { useData } from '../app/DataProvider.tsx'
 import {
   attachmentUrl,
+  borrowAttachment,
   FILE_ACCEPT,
   fileSummary,
   isImage,
   isPdf,
+  keepPaths,
   removeAttachment,
   uploadFiles,
 } from '../lib/files.ts'
 import type { Attachment } from '../storage/types.ts'
+import { Modal } from './Modal.tsx'
 
 export function Attachments({
   files,
@@ -19,10 +23,18 @@ export function Attachments({
   ownerId: string
   onChange: (next: Attachment[]) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const { data } = useData()
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const libraryRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState<Attachment | null>(null)
+  const [pickingDoc, setPickingDoc] = useState(false)
+
+  const borrowed = data.docs.flatMap((doc) =>
+    doc.attachments.map((file) => ({ docTitle: doc.title || doc.kind, file })),
+  )
+  const already = new Set(files.map((file) => file.path))
 
   async function onPick(list: FileList | null) {
     if (!list || list.length === 0) return
@@ -35,7 +47,8 @@ export function Attachments({
       setMessage(error instanceof Error ? error.message : '保存に失敗しました。')
     } finally {
       setBusy(false)
-      if (inputRef.current) inputRef.current.value = ''
+      if (cameraRef.current) cameraRef.current.value = ''
+      if (libraryRef.current) libraryRef.current.value = ''
     }
   }
 
@@ -43,13 +56,22 @@ export function Attachments({
     if (!window.confirm(`${file.name} を削除しますか？`)) return
     setBusy(true)
     try {
-      await removeAttachment(file)
+      await removeAttachment(file, keepPaths(data, [file.id]))
       onChange(files.filter((item) => item.id !== file.id))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '削除に失敗しました。')
     } finally {
       setBusy(false)
     }
+  }
+
+  function borrow(file: Attachment) {
+    if (already.has(file.path)) {
+      setMessage('すでに付いています。')
+      return
+    }
+    onChange([...files, borrowAttachment(file)])
+    setPickingDoc(false)
   }
 
   return (
@@ -80,16 +102,44 @@ export function Attachments({
       ) : (
         <p className="mb-2 text-xs text-muted">まだありません</p>
       )}
-      <button
-        type="button"
-        className="btn-ghost btn-wide"
-        disabled={busy}
-        onClick={() => inputRef.current?.click()}
-      >
-        {busy ? '保存中…' : '写真・PDFを追加'}
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={busy}
+          onClick={() => cameraRef.current?.click()}
+        >
+          {busy ? '保存中…' : '撮る'}
+        </button>
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={busy}
+          onClick={() => libraryRef.current?.click()}
+        >
+          {busy ? '保存中…' : 'ライブラリ'}
+        </button>
+      </div>
+      {borrowed.length > 0 ? (
+        <button
+          type="button"
+          className="btn-ghost btn-wide mt-2"
+          disabled={busy}
+          onClick={() => setPickingDoc(true)}
+        >
+          資料から選ぶ
+        </button>
+      ) : null}
       <input
-        ref={inputRef}
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(event) => void onPick(event.target.files)}
+      />
+      <input
+        ref={libraryRef}
         type="file"
         accept={FILE_ACCEPT}
         multiple
@@ -99,6 +149,27 @@ export function Attachments({
       {message ? <p className="mt-2 text-xs text-timber">{message}</p> : null}
       {preview ? (
         <Preview file={preview} onClose={() => setPreview(null)} />
+      ) : null}
+      {pickingDoc ? (
+        <Modal title="資料から選ぶ" onClose={() => setPickingDoc(false)}>
+          <p className="mb-3 text-xs text-muted">
+            すでに置いてあるファイルを、このメモにも付けます。再アップロードしません。
+          </p>
+          <ul className="space-y-2">
+            {borrowed.map(({ docTitle, file }) => (
+              <li key={`${docTitle}-${file.id}`}>
+                <button
+                  type="button"
+                  className="w-full rounded-sm border border-line bg-paper px-3 py-2 text-left"
+                  onClick={() => borrow(file)}
+                >
+                  <span className="block text-sm text-ink">{file.name}</span>
+                  <span className="block text-xs text-muted">{docTitle}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Modal>
       ) : null}
     </div>
   )

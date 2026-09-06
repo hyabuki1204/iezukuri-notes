@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { TextArea, TextField } from '../components/Field.tsx'
+import { WhoField, WhoStamp } from '../components/WhoField.tsx'
 import { useData } from '../app/DataProvider.tsx'
-import { removeAttachments } from '../lib/files.ts'
+import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
-import type { Attachment, Idea } from '../storage/types.ts'
+import { firstLine } from '../lib/preview.ts'
+import type { Attachment, Idea, Who } from '../storage/types.ts'
 
 export function IdeasScreen() {
   const { data, update } = useData()
@@ -14,6 +16,7 @@ export function IdeasScreen() {
   const [tag, setTag] = useState('')
   const [url, setUrl] = useState('')
   const [draftFiles, setDraftFiles] = useState<Attachment[]>([])
+  const [who, setWho] = useState<Who>('自分')
 
   function toggle(id: string) {
     setOpenIds((current) => {
@@ -36,6 +39,7 @@ export function IdeasScreen() {
           url: url.trim(),
           createdAt: nowIso(),
           attachments: draftFiles,
+          who,
         },
         ...current.ideas,
       ],
@@ -45,6 +49,7 @@ export function IdeasScreen() {
     setTag('')
     setUrl('')
     setDraftFiles([])
+    setWho('自分')
   }
 
   function patch(id: string, partial: Partial<Idea>) {
@@ -59,7 +64,13 @@ export function IdeasScreen() {
   function remove(id: string) {
     if (!window.confirm('このアイデアを削除しますか？')) return
     const target = data.ideas.find((item) => item.id === id)
-    if (target) void removeAttachments(target.attachments)
+    if (target) {
+      const remaining = {
+        ...data,
+        ideas: data.ideas.filter((item) => item.id !== id),
+      }
+      void removeAttachments(target.attachments, keepPaths(remaining))
+    }
     update((current) => ({
       ...current,
       ideas: current.ideas.filter((item) => item.id !== id),
@@ -69,6 +80,7 @@ export function IdeasScreen() {
   return (
     <div className="page">
       <section className="panel space-y-3 md:max-w-2xl">
+        <WhoField value={who} onChange={setWho} />
         <TextArea
           label="思いついたこと"
           value={text}
@@ -114,7 +126,10 @@ export function IdeasScreen() {
               className="w-full px-3 py-3 text-left"
               onClick={() => toggle(item.id)}
             >
-              <span className="block text-sm text-ink">{item.text}</span>
+              <span className="flex items-start justify-between gap-3">
+                <span className="block text-sm text-ink">{firstLine(item.text)}</span>
+                <WhoStamp who={item.who} />
+              </span>
               <span className="mt-0.5 block text-xs text-muted">
                 {[item.tag, item.url].filter(Boolean).join(' · ') || 'タグなし'}
               </span>
@@ -122,6 +137,10 @@ export function IdeasScreen() {
             </button>
             {openIds.has(item.id) ? (
               <div className="space-y-3 border-t border-line px-3 py-3">
+                <WhoField
+                  value={item.who}
+                  onChange={(next) => patch(item.id, { who: next })}
+                />
                 <TextArea
                   label="本文"
                   value={item.text}

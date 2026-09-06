@@ -1,4 +1,4 @@
-import { TABS } from '../app/tabs.ts'
+import { MAIN_TABS } from '../app/tabs.ts'
 import { useData, type Tab } from '../app/DataProvider.tsx'
 import { headerStats } from '../lib/stats.ts'
 import { NavIcon } from './NavIcon.tsx'
@@ -16,10 +16,10 @@ export function NavTabs({
       className={
         variant === 'header'
           ? 'flex items-center gap-2'
-          : 'grid grid-cols-5'
+          : 'grid grid-cols-4'
       }
     >
-      {TABS.map((item) => (
+      {MAIN_TABS.map((item) => (
         <NavTab
           key={item.id}
           id={item.id}

@@ -15,6 +15,10 @@ export type DocKind = '図面' | '見積' | '打ち合わせ' | 'その他'
 
 export const DOC_KINDS: DocKind[] = ['図面', '見積', '打ち合わせ', 'その他']
 
+export type Who = '自分' | '妻'
+
+export const WHOS: Who[] = ['自分', '妻']
+
 export interface Attachment {
   id: string
   name: string
@@ -22,6 +26,7 @@ export interface Attachment {
   size: number
   path: string
   createdAt: string
+  link?: boolean
 }
 
 export interface Decision {
@@ -36,6 +41,7 @@ export interface Decision {
   due?: string
   updatedAt: string
   attachments: Attachment[]
+  who: Who
 }
 
 export interface Question {
@@ -45,6 +51,7 @@ export interface Question {
   answer: string
   done: boolean
   attachments: Attachment[]
+  who: Who
 }
 
 export interface Idea {
@@ -54,6 +61,7 @@ export interface Idea {
   url: string
   createdAt: string
   attachments: Attachment[]
+  who: Who
 }
 
 export interface Minute {
@@ -67,6 +75,9 @@ export interface Minute {
   pending: string
   newq: string
   attachments: Attachment[]
+  sentDecided: string[]
+  sentNewq: string[]
+  who: Who
 }
 
 export interface Doc {
@@ -76,6 +87,7 @@ export interface Doc {
   note: string
   attachments: Attachment[]
   createdAt: string
+  who: Who
 }
 
 export interface AppData {
@@ -137,6 +149,7 @@ export function asAttachments(value: unknown): Attachment[] {
         size: typeof row.size === 'number' ? row.size : 0,
         path: String(row.path),
         createdAt: String(row.createdAt ?? ''),
+        link: Boolean(row.link),
       },
     ]
   })
@@ -144,4 +157,23 @@ export function asAttachments(value: unknown): Attachment[] {
 
 export function asDocKind(value: string): DocKind {
   return DOC_KINDS.includes(value as DocKind) ? (value as DocKind) : 'その他'
+}
+
+export function asWho(value: unknown): Who {
+  return value === '妻' ? '妻' : '自分'
+}
+
+export function asStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+export function allAttachments(data: AppData): Attachment[] {
+  return [
+    ...data.decisions.flatMap((item) => item.attachments),
+    ...data.questions.flatMap((item) => item.attachments),
+    ...data.ideas.flatMap((item) => item.attachments),
+    ...data.minutes.flatMap((item) => item.attachments),
+    ...data.docs.flatMap((item) => item.attachments),
+  ]
 }

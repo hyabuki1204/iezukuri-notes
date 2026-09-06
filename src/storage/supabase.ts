@@ -4,6 +4,8 @@ import type { Store } from './store.ts'
 import {
   asAttachments,
   asDocKind,
+  asStringList,
+  asWho,
   emptyAppData,
   type AppData,
   type Assignee,
@@ -29,6 +31,7 @@ type DecisionRow = {
   due: string | null
   updated_at: string
   attachments: Attachment[]
+  who?: string | null
 }
 
 type QuestionRow = {
@@ -39,6 +42,7 @@ type QuestionRow = {
   answer: string
   done: boolean
   attachments: Attachment[]
+  who?: string | null
 }
 
 type IdeaRow = {
@@ -49,6 +53,7 @@ type IdeaRow = {
   url: string
   created_at: string
   attachments: Attachment[]
+  who?: string | null
 }
 
 type MinuteRow = {
@@ -63,6 +68,9 @@ type MinuteRow = {
   pending: string
   newq: string
   attachments: Attachment[]
+  who?: string | null
+  sent_decided?: unknown
+  sent_newq?: unknown
 }
 
 type DocRow = {
@@ -73,6 +81,7 @@ type DocRow = {
   note: string
   attachments: Attachment[]
   created_at: string
+  who?: string | null
 }
 
 function asStatus(value: number): Status {
@@ -269,6 +278,7 @@ function rowToDecision(row: DecisionRow): Decision {
     due: row.due ?? undefined,
     updatedAt: row.updated_at,
     attachments: asAttachments(row.attachments),
+    who: asWho(row.who),
   }
 }
 
@@ -286,6 +296,7 @@ function decisionToRow(householdId: string, item: Decision): DecisionRow {
     due: item.due ?? null,
     updated_at: item.updatedAt,
     attachments: item.attachments ?? [],
+    who: item.who,
   }
 }
 
@@ -297,6 +308,7 @@ function rowToQuestion(row: QuestionRow): Question {
     answer: row.answer,
     done: row.done,
     attachments: asAttachments(row.attachments),
+    who: asWho(row.who),
   }
 }
 
@@ -309,6 +321,7 @@ function questionToRow(householdId: string, item: Question): QuestionRow {
     answer: item.answer,
     done: item.done,
     attachments: item.attachments ?? [],
+    who: item.who,
   }
 }
 
@@ -320,6 +333,7 @@ function rowToIdea(row: IdeaRow): Idea {
     url: row.url,
     createdAt: row.created_at,
     attachments: asAttachments(row.attachments),
+    who: asWho(row.who),
   }
 }
 
@@ -332,6 +346,7 @@ function ideaToRow(householdId: string, item: Idea): IdeaRow {
     url: item.url,
     created_at: item.createdAt,
     attachments: item.attachments ?? [],
+    who: item.who,
   }
 }
 
@@ -347,6 +362,9 @@ function rowToMinute(row: MinuteRow): Minute {
     pending: row.pending,
     newq: row.newq,
     attachments: asAttachments(row.attachments),
+    who: asWho(row.who),
+    sentDecided: asStringList(row.sent_decided),
+    sentNewq: asStringList(row.sent_newq),
   }
 }
 
@@ -363,6 +381,9 @@ function minuteToRow(householdId: string, item: Minute): MinuteRow {
     pending: item.pending,
     newq: item.newq,
     attachments: item.attachments ?? [],
+    who: item.who,
+    sent_decided: item.sentDecided,
+    sent_newq: item.sentNewq,
   }
 }
 
@@ -374,6 +395,7 @@ function rowToDoc(row: DocRow): Doc {
     note: row.note ?? '',
     attachments: asAttachments(row.attachments),
     createdAt: row.created_at,
+    who: asWho(row.who),
   }
 }
 
@@ -386,6 +408,7 @@ function docToRow(householdId: string, item: Doc): DocRow {
     note: item.note,
     attachments: item.attachments ?? [],
     created_at: item.createdAt,
+    who: item.who,
   }
 }
 

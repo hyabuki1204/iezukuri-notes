@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
-import { useData } from '../app/DataProvider.tsx'
+import { WhoField, WhoStamp } from '../components/WhoField.tsx'
+import { useData, type DecisionFilter } from '../app/DataProvider.tsx'
 import { dueUrgency } from '../lib/due.ts'
-import { removeAttachments } from '../lib/files.ts'
+import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
+import { firstLine } from '../lib/preview.ts'
 import {
   AREAS,
   CATEGORIES,
@@ -13,8 +15,6 @@ import {
   type Decision,
   type Status,
 } from '../storage/types.ts'
-
-type StatusFilter = 'all' | 'undecided' | 'undrawn'
 
 function emptyDraft(): Decision {
   return {
@@ -26,17 +26,38 @@ function emptyDraft(): Decision {
     drawn: false,
     updatedAt: nowIso(),
     attachments: [],
+    who: '自分',
   }
 }
 
 export function DecisionsScreen() {
-  const { data, update } = useData()
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const { data, update, jump, consumeJump } = useData()
+  const [statusFilter, setStatusFilter] = useState<DecisionFilter>('all')
   const [catFilter, setCatFilter] = useState<string>('all')
   const [groupByArea, setGroupByArea] = useState(false)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState<Decision>(emptyDraft)
+
+  useEffect(() => {
+    if (!jump || jump.tab !== 'decisions') return
+    if (jump.urgent) {
+      setStatusFilter('all')
+      setCatFilter('all')
+    } else if (jump.filter && jump.filter !== 'all') {
+      setStatusFilter(jump.filter)
+    }
+    const scrollUrgent = Boolean(jump.urgent)
+    consumeJump()
+    if (scrollUrgent) {
+      window.setTimeout(() => {
+        document.getElementById('urgent-decisions')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      }, 80)
+    }
+  }, [jump, consumeJump])
 
   const filtered = useMemo(() => {
     return data.decisions.filter((item) => {
@@ -94,7 +115,13 @@ export function DecisionsScreen() {
   function remove(id: string) {
     if (!window.confirm('この決定を削除しますか？')) return
     const target = data.decisions.find((item) => item.id === id)
-    if (target) void removeAttachments(target.attachments)
+    if (target) {
+      const remaining = {
+        ...data,
+        decisions: data.decisions.filter((item) => item.id !== id),
+      }
+      void removeAttachments(target.attachments, keepPaths(remaining))
+    }
     update((current) => ({
       ...current,
       decisions: current.decisions.filter((item) => item.id !== id),
@@ -130,20 +157,21 @@ export function DecisionsScreen() {
           </Chip>
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Chip active={catFilter === 'all'} onClick={() => setCatFilter('all')}>
-          大分類
-        </Chip>
-        {CATEGORIES.map((cat) => (
-          <Chip
-            key={cat}
-            active={catFilter === cat}
-            onClick={() => setCatFilter(cat)}
-          >
-            {cat}
-          </Chip>
-        ))}
-      </div>
+      <label className="mt-3 block md:max-w-xs">
+        <span className="mb-1 block text-xs text-muted">大分類</span>
+        <select
+          className="w-full rounded-sm border border-line bg-paper px-3 py-2.5 text-sm"
+          value={catFilter}
+          onChange={(event) => setCatFilter(event.target.value)}
+        >
+          <option value="all">すべて</option>
+          {CATEGORIES.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+      </label>
       {catFilter === '外構' ? (
         <label className="mt-3 flex items-center gap-2 text-sm text-ink">
           <input
@@ -179,7 +207,7 @@ export function DecisionsScreen() {
       ) : null}
 
       {urgent.length > 0 ? (
-        <section className="mt-5">
+        <section id="urgent-decisions" className="mt-5 scroll-mt-24">
           <h2 className="section-title text-orange">期限が近い・過ぎた</h2>
           <ul className="card-list mt-2">
             {urgent.map((item) => (
@@ -263,12 +291,20 @@ function DecisionCard({
         onClick={onToggle}
       >
         <span>
-          <span className="block text-sm text-ink">{item.title}</span>
+          <span className="flex items-start justify-between gap-3">
+            <span className="block text-sm text-ink">{item.title}</span>
+            <WhoStamp who={item.who} />
+          </span>
           <span className="mt-0.5 block text-xs text-muted">
             {STATUS_LABEL[item.status]}
             {item.drawn ? ' · 図面済' : ''}
             {item.due ? ` · ${item.due}` : ''}
           </span>
+          {firstLine(item.body) ? (
+            <span className="mt-0.5 block text-xs text-muted">
+              {firstLine(item.body)}
+            </span>
+          ) : null}
           <AttachmentHint files={item.attachments} />
         </span>
         {urgency ? (
@@ -305,6 +341,10 @@ function DecisionFields({
   const showArea = value.cat === '外構' || value.cat === '外観'
   return (
     <div className="space-y-3">
+      <WhoField
+        value={value.who}
+        onChange={(who) => onChange({ ...value, who })}
+      />
       <SelectField
         label="大分類"
         value={value.cat}
