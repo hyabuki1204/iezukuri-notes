@@ -78,6 +78,7 @@ interface Idea { id: string; text: string; tag: string; url: string; createdAt: 
 
 interface Minute {
   id: string; date: string; theme: string;
+  raw: string; // 積水AI議事録などの原文。5項目はここから抽出して手編集する
   decided: string; myTodo: string; theirTodo: string; pending: string; newq: string;
 }
 
