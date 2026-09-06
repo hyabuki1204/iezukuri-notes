@@ -4,6 +4,7 @@ import { Modal } from '../components/Modal.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
 import { WhoField, WhoStamp } from '../components/WhoField.tsx'
 import { useData } from '../app/DataProvider.tsx'
+import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
 import { firstOf, optionsFor } from '../lib/lists.ts'
@@ -44,6 +45,22 @@ export function QuestionsScreen() {
       questions: current.questions.map((item) =>
         item.id === id ? { ...item, ...partial } : item,
       ),
+    }))
+  }
+
+  function remove(id: string) {
+    if (!window.confirm('この質問を削除しますか？')) return
+    const target = data.questions.find((item) => item.id === id)
+    if (target) {
+      const remaining = {
+        ...data,
+        questions: data.questions.filter((item) => item.id !== id),
+      }
+      void removeAttachments(target.attachments, keepPaths(remaining))
+    }
+    update((current) => ({
+      ...current,
+      questions: current.questions.filter((item) => item.id !== id),
     }))
   }
 
@@ -162,6 +179,7 @@ export function QuestionsScreen() {
             onToggle={() => toggle(item.id)}
             onPatch={(partial) => patch(item.id, partial)}
             onPromote={() => startPromote(item)}
+            onRemove={() => remove(item.id)}
           />
         ))}
       </ul>
@@ -183,6 +201,7 @@ export function QuestionsScreen() {
               onToggle={() => toggle(item.id)}
               onPatch={(partial) => patch(item.id, partial)}
               onPromote={() => startPromote(item)}
+              onRemove={() => remove(item.id)}
             />
           ))}
         </ul>
@@ -232,12 +251,14 @@ function QuestionCard({
   onToggle,
   onPatch,
   onPromote,
+  onRemove,
 }: {
   item: Question
   open: boolean
   onToggle: () => void
   onPatch: (partial: Partial<Question>) => void
   onPromote: () => void
+  onRemove: () => void
 }) {
   const { data } = useData()
   return (
@@ -308,6 +329,13 @@ function QuestionCard({
               決定台帳へ送る
             </button>
           ) : null}
+          <button
+            type="button"
+            className="text-sm text-timber"
+            onClick={onRemove}
+          >
+            削除
+          </button>
         </div>
       ) : null}
     </li>
