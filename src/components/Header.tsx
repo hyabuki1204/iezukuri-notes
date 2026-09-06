@@ -37,7 +37,7 @@ export function Header() {
     const anchor = document.createElement('a')
     const today = new Date().toISOString().slice(0, 10)
     anchor.href = url
-    anchor.download = `iezukuri-notes-${today}.json`
+    anchor.download = `家づくりメモ-バックアップ-${today}.json`
     anchor.click()
     URL.revokeObjectURL(url)
     setOpen(false)
@@ -50,16 +50,16 @@ export function Header() {
     const text = await file.text()
     const parsed = parseImportedJson(text)
     if (!parsed) {
-      setMessage('JSONの形が違います。書き出したファイルを選んでください。')
+      setMessage('バックアップのファイルではありません。保存したファイルを選んでください。')
       setOpen(false)
       return
     }
     const ok = window.confirm(
-      '今のメモを、このファイルの内容で置き換えます。よろしいですか？',
+      '今のメモを、このバックアップの内容で置き換えます。今あるメモは消えます。よろしいですか？',
     )
     if (!ok) return
     replace(parsed)
-    setMessage('読み込みました。')
+    setMessage('バックアップから戻しました。')
     setOpen(false)
   }
 
@@ -115,20 +115,20 @@ export function Header() {
             メニュー
           </button>
           {open ? (
-            <div className="absolute right-0 z-30 mt-1 w-44 overflow-hidden rounded-sm border border-line bg-card py-1 shadow-sm top-full">
+            <div className="absolute right-0 z-30 mt-1 w-52 overflow-hidden rounded-sm border border-line bg-card py-1 shadow-sm top-full">
               <button
                 type="button"
                 className="block w-full px-3 py-2 text-left text-sm text-ink"
                 onClick={exportJson}
               >
-                JSONを書き出す
+                バックアップを保存
               </button>
               <button
                 type="button"
                 className="block w-full px-3 py-2 text-left text-sm text-ink"
                 onClick={() => fileRef.current?.click()}
               >
-                JSONを読み込む
+                バックアップから戻す
               </button>
             </div>
           ) : null}
