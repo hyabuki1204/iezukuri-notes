@@ -3,16 +3,14 @@ import { useData } from '../app/DataProvider.tsx'
 import { dueUrgency } from '../lib/due.ts'
 import { headerStats } from '../lib/stats.ts'
 import { parseImportedJson } from '../storage/local.ts'
-import { ListsEditor } from './ListsEditor.tsx'
 import { NavIcon } from './NavIcon.tsx'
 import { NavTabs } from './NavTabs.tsx'
 
-export function Header() {
+export function Header({ onEditLists }: { onEditLists: () => void }) {
   const { data, replace, cloud, cloudMessage, go, tab, setTab } = useData()
   const stats = headerStats(data)
   const urgentCount = data.decisions.filter((item) => dueUrgency(item.due)).length
   const [open, setOpen] = useState(false)
-  const [editingLists, setEditingLists] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -123,7 +121,7 @@ export function Header() {
                 className="block w-full px-3 py-2 text-left text-sm text-ink"
                 onClick={() => {
                   setOpen(false)
-                  setEditingLists(true)
+                  onEditLists()
                 }}
               >
                 分類を編集
@@ -190,10 +188,6 @@ export function Header() {
           ) : null}
         </>
       )}
-
-      {editingLists ? (
-        <ListsEditor onClose={() => setEditingLists(false)} />
-      ) : null}
 
       {message || cloudMessage ? (
         <p className="mx-auto max-w-6xl px-4 pb-3 text-xs text-muted md:px-8">

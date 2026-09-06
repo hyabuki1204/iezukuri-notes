@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { DataProvider, useData } from './app/DataProvider.tsx'
 import { Header } from './components/Header.tsx'
+import { ListsEditor } from './components/ListsEditor.tsx'
 import { TabBar } from './components/TabBar.tsx'
 import { DecisionsScreen } from './screens/DecisionsScreen.tsx'
 import { IdeasScreen } from './screens/IdeasScreen.tsx'
@@ -9,6 +11,7 @@ import { QuestionsScreen } from './screens/QuestionsScreen.tsx'
 
 function Shell() {
   const { ready, tab } = useData()
+  const [editingLists, setEditingLists] = useState(false)
 
   if (!ready) {
     return (
@@ -18,7 +21,10 @@ function Shell() {
 
   return (
     <div className="min-h-dvh bg-paper pb-24 md:pb-0">
-      <Header />
+      <Header onEditLists={() => setEditingLists(true)} />
+      {editingLists ? (
+        <ListsEditor onClose={() => setEditingLists(false)} />
+      ) : null}
       <main className="mx-auto w-full max-w-6xl">
         {tab === 'decisions' ? <DecisionsScreen /> : null}
         {tab === 'questions' ? <QuestionsScreen /> : null}

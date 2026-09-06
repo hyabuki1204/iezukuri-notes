@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useData } from '../app/DataProvider.tsx'
 import {
   addListItem,
@@ -29,24 +30,45 @@ export function ListsEditor({ onClose }: { onClose: () => void }) {
   })
   const [message, setMessage] = useState<string | null>(null)
 
+  useEffect(() => {
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
   function apply(next: ReturnType<typeof addListItem>, fail: string) {
     if (!next) {
       setMessage(fail)
-      return
+      return false
     }
     update(() => next)
     setMessage(null)
+    return true
   }
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-paper pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto max-w-xl px-4 py-4 pb-16">
-        <div className="mb-4 flex items-center justify-between gap-3">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[80] overflow-auto bg-paper"
+      role="dialog"
+      aria-modal="true"
+      aria-label="分類を編集"
+    >
+      <div className="sticky top-0 z-10 border-b border-line bg-card pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex max-w-xl items-center justify-between gap-3 px-4 py-3">
           <h2 className="text-base font-bold text-ink">分類を編集</h2>
           <button type="button" className="text-sm text-muted" onClick={onClose}>
             閉じる
           </button>
         </div>
+      </div>
+      <div className="mx-auto max-w-xl px-4 py-4 pb-16">
         <p className="mb-5 text-xs text-muted">
           確定度と「自分 / 妻」は、数字の意味が決まっているので変えられません。
         </p>
@@ -136,11 +158,9 @@ export function ListsEditor({ onClose }: { onClose: () => void }) {
                 type="button"
                 className="btn-ghost shrink-0"
                 onClick={() => {
-                  apply(
-                    addListItem(data, section.key, drafts[section.key]),
-                    '同じ名前があるか、空です。',
-                  )
-                  setDrafts((current) => ({ ...current, [section.key]: '' }))
+                  if (apply(addListItem(data, section.key, drafts[section.key]), '同じ名前があるか、空です。')) {
+                    setDrafts((current) => ({ ...current, [section.key]: '' }))
+                  }
                 }}
               >
                 追加
@@ -150,6 +170,7 @@ export function ListsEditor({ onClose }: { onClose: () => void }) {
         ))}
         {message ? <p className="text-sm text-timber">{message}</p> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
