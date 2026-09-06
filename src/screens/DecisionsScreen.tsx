@@ -322,12 +322,12 @@ function DecisionFields({
       />
       <div>
         <p className="mb-1 text-xs text-muted">確定度</p>
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-2 gap-2">
           {STATUS_LABEL.map((label, status) => (
             <button
               key={label}
               type="button"
-              className={`rounded-sm border px-1 py-2 text-[11px] ${
+              className={`rounded-sm border px-2 py-2 text-sm ${
                 value.status === status
                   ? `${STATUS_BORDER[status as Status]} bg-paper text-ink`
                   : 'border-line text-muted'
