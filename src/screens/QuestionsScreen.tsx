@@ -85,16 +85,16 @@ export function QuestionsScreen() {
   }
 
   return (
-    <div className="px-4 py-4">
+    <div className="page">
       <button
         type="button"
-        className="w-full rounded-sm border border-line bg-card py-3 text-sm text-green"
+        className="w-full border border-line bg-card py-3 text-sm tracking-[0.12em] text-ink md:w-auto md:px-8"
         onClick={() => setAdding((value) => !value)}
       >
         {adding ? '追加を閉じる' : '＋ 質問を追加'}
       </button>
       {adding ? (
-        <div className="mt-2 space-y-3 rounded-sm border border-line bg-card p-3">
+        <div className="panel mt-2 space-y-3 p-3 md:max-w-xl md:p-5">
           <SelectField
             label="宛先"
             value={draft.to}
@@ -115,7 +115,7 @@ export function QuestionsScreen() {
           />
           <button
             type="button"
-            className="w-full rounded-sm bg-green py-2 text-sm text-card"
+            className="w-full bg-ink py-2 text-sm tracking-[0.12em] text-card md:w-auto md:px-8"
             onClick={addDraft}
           >
             追加する
@@ -123,7 +123,7 @@ export function QuestionsScreen() {
         </div>
       ) : null}
 
-      <ul className="mt-4 space-y-2">
+      <ul className="card-list">
         {openItems.map((item) => (
           <QuestionCard
             key={item.id}
@@ -144,7 +144,7 @@ export function QuestionsScreen() {
         回答済 {doneItems.length}件 {showDone ? 'を閉じる' : 'を見る'}
       </button>
       {showDone ? (
-        <ul className="mt-2 space-y-2">
+        <ul className="card-list mt-2">
           {doneItems.map((item) => (
             <QuestionCard
               key={item.id}
@@ -184,7 +184,7 @@ export function QuestionsScreen() {
             />
             <button
               type="button"
-              className="w-full rounded-sm bg-green py-2 text-sm text-card"
+              className="w-full bg-ink py-2 text-sm tracking-[0.12em] text-card"
               onClick={confirmPromote}
             >
               送って質問を消す
@@ -210,7 +210,7 @@ function QuestionCard({
   onPromote: () => void
 }) {
   return (
-    <li className="rounded-sm border border-line bg-card">
+    <li className="border border-line bg-card">
       <button
         type="button"
         className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
@@ -253,7 +253,7 @@ function QuestionCard({
           {item.done ? (
             <button
               type="button"
-              className="w-full rounded-sm border border-green py-2 text-sm text-green"
+              className="w-full border border-ink py-2 text-sm tracking-[0.12em] text-ink"
               onClick={onPromote}
             >
               決定台帳へ送る

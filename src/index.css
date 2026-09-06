@@ -1,19 +1,20 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-paper: #f2f1ed;
+  --color-paper: #ffffff;
   --color-card: #ffffff;
-  --color-ink: #23262b;
-  --color-muted: #7b7a71;
-  --color-line: #dedcd3;
-  --color-green: #3f6b4a;
-  --color-amber: #b8842b;
-  --color-timber: #8a6a4f;
+  --color-ink: #111111;
+  --color-muted: #696766;
+  --color-line: #cccccc;
+  --color-green: #111111;
+  --color-amber: #e6b422;
+  --color-timber: #696766;
 
-  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mincho: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
+  --font-sans: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  --font-mincho: 'Libre Baskerville', 'Noto Sans JP', serif;
+  --font-display: 'Libre Baskerville', 'Noto Sans JP', serif;
 
-  --radius-sm: 8px;
+  --radius-sm: 0;
 }
 
 @layer base {
@@ -23,13 +24,39 @@
     min-height: 100dvh;
   }
 
+  html {
+    font-size: 14px;
+  }
+
   body {
     @apply m-0 bg-paper text-ink font-sans antialiased;
+    letter-spacing: 0.05em;
+    line-height: 1.8;
+    color: #333333;
   }
 
   #root {
-    margin-inline: auto;
-    max-width: 28rem;
     background: var(--color-paper);
+  }
+
+  @media (min-width: 768px) {
+    a:hover,
+    button:hover {
+      opacity: 0.7;
+    }
+  }
+}
+
+@layer components {
+  .page {
+    @apply px-4 py-5 md:px-10 md:py-8;
+  }
+
+  .panel {
+    @apply border border-line bg-card;
+  }
+
+  .card-list {
+    @apply mt-4 grid gap-2 md:grid-cols-2;
   }
 }

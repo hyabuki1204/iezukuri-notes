@@ -1,10 +1,11 @@
 import { useRef, useState, type ChangeEvent } from 'react'
+import { TABS } from '../app/tabs.ts'
 import { useData } from '../app/DataProvider.tsx'
 import { headerStats } from '../lib/stats.ts'
 import { parseImportedJson } from '../storage/local.ts'
 
 export function Header() {
-  const { data, replace, cloud, cloudMessage } = useData()
+  const { data, replace, cloud, cloudMessage, tab, setTab } = useData()
   const stats = headerStats(data)
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -45,11 +46,16 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-paper/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-mincho text-lg text-ink">家づくりメモ</h1>
-          <p className="text-[10px] text-muted">
+    <header className="sticky top-0 z-20 border-b border-line bg-paper">
+      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-4 md:px-10 md:py-6">
+        <div className="min-w-0">
+          <p className="font-display text-[10px] tracking-[0.28em] text-ink uppercase">
+            Iezukuri
+          </p>
+          <h1 className="text-sm tracking-[0.18em] text-ink md:text-base">
+            家づくりメモ
+          </h1>
+          <p className="text-[10px] tracking-wider text-muted">
             {cloud === 'connected'
               ? '2台で共有中'
               : cloud === 'error'
@@ -57,17 +63,39 @@ export function Header() {
                 : 'この端末のみ'}
           </p>
         </div>
-        <div className="relative">
+
+        <nav className="hidden flex-1 justify-center md:flex">
+          <ul className="flex items-center gap-7">
+            {TABS.map((item) => {
+              const active = tab === item.id
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className={`text-sm tracking-[0.14em] ${
+                      active ? 'text-ink' : 'text-muted'
+                    }`}
+                    onClick={() => setTab(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+
+        <div className="relative ml-auto">
           <button
             type="button"
-            className="rounded-sm border border-line px-2 py-1 text-sm text-muted"
+            className="border border-line px-3 py-1.5 text-xs tracking-[0.16em] text-ink"
             onClick={() => setOpen((value) => !value)}
             aria-expanded={open}
           >
             メニュー
           </button>
           {open ? (
-            <div className="absolute right-0 z-30 mt-1 w-44 rounded-sm border border-line bg-card py-1">
+            <div className="absolute right-0 z-30 mt-1 w-44 border border-line bg-card py-1">
               <button
                 type="button"
                 className="block w-full px-3 py-2 text-left text-sm text-ink"
@@ -94,13 +122,15 @@ export function Header() {
         </div>
       </div>
 
-      <dl className="mt-3 grid grid-cols-3 gap-2">
+      <dl className="grid grid-cols-3 border-t border-line">
         <Stat label="未確定" value={stats.undecided} />
         <Stat label="図面未反映" value={stats.undrawn} />
         <Stat label="未質問" value={stats.openQuestions} />
       </dl>
       {message || cloudMessage ? (
-        <p className="mt-2 text-xs text-muted">{message ?? cloudMessage}</p>
+        <p className="mx-auto max-w-6xl px-4 py-2 text-xs text-muted md:px-10">
+          {message ?? cloudMessage}
+        </p>
       ) : null}
     </header>
   )
@@ -108,9 +138,9 @@ export function Header() {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-sm border border-line bg-card px-2 py-2 text-center">
-      <dt className="text-[10px] text-muted">{label}</dt>
-      <dd className="font-mincho text-xl text-ink">{value}</dd>
+    <div className="border-r border-line px-2 py-2 text-center last:border-r-0 md:py-3">
+      <dt className="text-[10px] tracking-[0.16em] text-muted">{label}</dt>
+      <dd className="font-display text-xl text-ink md:text-2xl">{value}</dd>
     </div>
   )
 }

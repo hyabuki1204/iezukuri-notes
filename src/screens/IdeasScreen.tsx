@@ -58,8 +58,8 @@ export function IdeasScreen() {
   }
 
   return (
-    <div className="px-4 py-4">
-      <section className="space-y-3 rounded-sm border border-line bg-card p-3">
+    <div className="page">
+      <section className="panel space-y-3 p-3 md:max-w-2xl md:p-5">
         <TextArea
           label="思いついたこと"
           value={text}
@@ -82,16 +82,16 @@ export function IdeasScreen() {
         </div>
         <button
           type="button"
-          className="w-full rounded-sm bg-green py-2 text-sm text-card"
+          className="w-full bg-ink py-2 text-sm tracking-[0.12em] text-card md:w-auto md:px-8"
           onClick={add}
         >
           放り込む
         </button>
       </section>
 
-      <ul className="mt-4 space-y-2">
+      <ul className="card-list">
         {data.ideas.map((item) => (
-          <li key={item.id} className="rounded-sm border border-line bg-card">
+          <li key={item.id} className="border border-line bg-card">
             <button
               type="button"
               className="w-full px-3 py-3 text-left"
@@ -124,7 +124,7 @@ export function IdeasScreen() {
                     href={item.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="block text-sm text-green"
+                    className="block text-sm text-ink underline underline-offset-4"
                   >
                     リンクを開く
                   </a>
