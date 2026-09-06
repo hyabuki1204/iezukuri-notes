@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-paper: #f2f1ed;
+  --color-card: #ffffff;
+  --color-ink: #23262b;
+  --color-muted: #7b7a71;
+  --color-line: #dedcd3;
+  --color-green: #3f6b4a;
+  --color-amber: #b8842b;
+  --color-timber: #8a6a4f;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mincho: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
+
+  --radius-sm: 8px;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+  }
+
+  body {
+    @apply m-0 bg-paper text-ink font-sans antialiased;
+  }
+}
