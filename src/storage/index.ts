@@ -17,3 +17,5 @@ export {
   emptyAppData,
 } from './types.ts'
 export { LocalStore, STORAGE_KEY, parseImportedJson } from './local.ts'
+export { isSupabaseConfigured } from './config.ts'
+export { SupabaseStore } from './supabase.ts'

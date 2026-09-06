@@ -7,7 +7,9 @@
 - ヘッダー3数字: 未確定 = `status <= 1` / 図面未反映 = `status >= 2 && !drawn` / 未質問 = `!done`
 - JSON I/O: ヘッダーメニュー。タブ骨組みの直後に入れる
 - 写真・スクショ・PDF: Phase 1 はやらない
-- 共有: 4画面のあと、PWAより先に `SupabaseStore`（Q1=B）
+- 共有: white-tee-ec の `iezukuri_*` テーブル。世帯コード。ログインなし
+- kanemasa-fabric-os は触らない
+- RLS は anon 全開（世帯UUIDが秘密）。white-tee-ec を公開ECにする前に締める
 - 議事録: `raw`（原文）を持つ。原文から5項目を LLM で抽出する。抽出結果は手編集できる
 - 抽出の手段: LLM API（実装は議事録ステップ。ライブラリはそのとき相談）
 - Tailwind v4（`@theme`）。トークンは `src/index.css`
@@ -23,6 +25,7 @@
 
 - 写真・スクショ添付（アイデア、のち外構）
 - PDF埋め込み
-- 妻との2台共有（`SupabaseStore`。4画面のあと、PWAの前）
+- white-tee-ec 公開前に `iezukuri_*` の RLS を締める
+- 妻との2台共有（実装済み。接続確認は URL / anon key 待ち）
 - 議事録の原文 → 5項目抽出（LLM API。ライブラリは議事録ステップで相談）
 - PWA / Vercel（共有のあと）
