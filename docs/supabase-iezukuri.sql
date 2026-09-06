@@ -3,7 +3,12 @@
 
 create table if not exists public.iezukuri_households (
   id uuid primary key,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  lists jsonb not null default '{
+    "categories": ["外観","外構","間取り・寸法","窓・サッシ","空調・給湯","電気","キッチン","洗面・浴室・トイレ","収納","内装","外部設備","資金"],
+    "areas": ["道路〜アプローチ","駐車場","前庭40坪","東側ウッドデッキ","建物外観","サービスヤード","境界"],
+    "assignees": ["営業","設計","インテリア","外構","自分で調べる"]
+  }'::jsonb
 );
 
 -- 家は1件だけ。アプリ側もこのIDを固定している。
@@ -123,6 +128,7 @@ grant select, insert, update, delete on public.iezukuri_ideas to anon;
 grant select, insert, update, delete on public.iezukuri_minutes to anon;
 grant select, insert, update, delete on public.iezukuri_docs to anon;
 
+alter publication supabase_realtime add table public.iezukuri_households;
 alter publication supabase_realtime add table public.iezukuri_decisions;
 alter publication supabase_realtime add table public.iezukuri_questions;
 alter publication supabase_realtime add table public.iezukuri_ideas;

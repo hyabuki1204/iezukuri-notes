@@ -90,7 +90,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async function boot() {
       const cached = await local.load()
       if (!isSupabaseConfigured()) {
-        const next = isEmptyData(cached) ? seedData() : cached
+        const next = isEmptyData(cached)
+          ? { ...seedData(), lists: cached.lists }
+          : cached
         if (isEmptyData(cached)) await local.save(next)
         setData(next)
         setCloud('local')
@@ -104,7 +106,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const loaded = await remote.load()
         const next = isEmptyData(loaded)
           ? isEmptyData(cached)
-            ? seedData()
+            ? { ...seedData(), lists: cached.lists }
             : cached
           : loaded
         if (isEmptyData(loaded)) await remote.save(next)
@@ -122,7 +124,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setCloud('connected')
         setCloudMessage(null)
       } catch (error: unknown) {
-        setData(isEmptyData(cached) ? seedData() : cached)
+        setData(
+          isEmptyData(cached) ? { ...seedData(), lists: cached.lists } : cached,
+        )
         setCloud('error')
         setCloudMessage(
           error instanceof Error ? error.message : 'クラウドに繋がらない',

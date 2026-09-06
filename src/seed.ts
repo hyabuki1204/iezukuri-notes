@@ -1,4 +1,4 @@
-import type { AppData, Decision, Question } from './storage/types.ts'
+import { defaultLists, type AppData, type Decision, type Question } from './storage/types.ts'
 
 const UPDATED = '2026-09-06T00:00:00.000Z'
 
@@ -131,6 +131,7 @@ export function seedData(): AppData {
     ideas: [],
     minutes: [],
     docs: [],
+    lists: defaultLists(),
   }
 }
 

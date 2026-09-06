@@ -2,7 +2,9 @@ import type { AppData } from './types.ts'
 import {
   asAttachments,
   asDocKind,
+  asLists,
   asStringList,
+  asTo,
   asWho,
   emptyAppData,
 } from './types.ts'
@@ -24,6 +26,7 @@ function normalize(data: Partial<AppData>): AppData {
           ...item,
           attachments: asAttachments(item.attachments),
           who: asWho(item.who),
+          to: asTo(item.to),
         }))
       : [],
     ideas: Array.isArray(data.ideas)
@@ -52,6 +55,7 @@ function normalize(data: Partial<AppData>): AppData {
           who: asWho(doc.who),
         }))
       : [],
+    lists: asLists(data.lists),
   }
 }
 

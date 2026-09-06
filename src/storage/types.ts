@@ -9,7 +9,7 @@ export const STATUS_BORDER = [
   'border-blue',
 ] as const
 
-export type Assignee = '営業' | '設計' | 'インテリア' | '外構' | '自分で調べる'
+export type Assignee = string
 
 export type DocKind = '図面' | '見積' | '打ち合わせ' | 'その他'
 
@@ -90,12 +90,19 @@ export interface Doc {
   who: Who
 }
 
+export interface Lists {
+  categories: string[]
+  areas: string[]
+  assignees: string[]
+}
+
 export interface AppData {
   decisions: Decision[]
   questions: Question[]
   ideas: Idea[]
   minutes: Minute[]
   docs: Doc[]
+  lists: Lists
 }
 
 export const CATEGORIES = [
@@ -123,7 +130,7 @@ export const AREAS = [
   '境界',
 ] as const
 
-export const ASSIGNEES: Assignee[] = [
+export const ASSIGNEES: string[] = [
   '営業',
   '設計',
   'インテリア',
@@ -131,8 +138,50 @@ export const ASSIGNEES: Assignee[] = [
   '自分で調べる',
 ]
 
+export function defaultLists(): Lists {
+  return {
+    categories: [...CATEGORIES],
+    areas: [...AREAS],
+    assignees: [...ASSIGNEES],
+  }
+}
+
 export function emptyAppData(): AppData {
-  return { decisions: [], questions: [], ideas: [], minutes: [], docs: [] }
+  return {
+    decisions: [],
+    questions: [],
+    ideas: [],
+    minutes: [],
+    docs: [],
+    lists: defaultLists(),
+  }
+}
+
+export function asTo(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : '営業'
+}
+
+export function asLists(value: unknown): Lists {
+  const fallback = defaultLists()
+  if (!value || typeof value !== 'object') return fallback
+  const row = value as Partial<Lists>
+  return {
+    categories: asNamedList(row.categories, fallback.categories),
+    areas: asNamedList(row.areas, fallback.areas),
+    assignees: asNamedList(row.assignees, fallback.assignees),
+  }
+}
+
+function asNamedList(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return [...fallback]
+  const names = [
+    ...new Set(
+      value
+        .map((item) => String(item).trim())
+        .filter(Boolean),
+    ),
+  ]
+  return names.length > 0 ? names : [...fallback]
 }
 
 export function asAttachments(value: unknown): Attachment[] {

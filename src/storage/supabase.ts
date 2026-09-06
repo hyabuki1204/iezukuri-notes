@@ -4,6 +4,7 @@ import type { Store } from './store.ts'
 import {
   asAttachments,
   asDocKind,
+  asLists,
   asStringList,
   asWho,
   emptyAppData,
@@ -13,6 +14,7 @@ import {
   type Decision,
   type Doc,
   type Idea,
+  type Lists,
   type Minute,
   type Question,
   type Status,
@@ -132,17 +134,19 @@ export class SupabaseStore implements Store {
   async load(): Promise<AppData> {
     const client = getSupabase()
     const hid = this.householdId
-    const [decisions, questions, ideas, minutes, docs] = await Promise.all([
+    const [decisions, questions, ideas, minutes, docs, house] = await Promise.all([
       client.from('iezukuri_decisions').select('*').eq('household_id', hid),
       client.from('iezukuri_questions').select('*').eq('household_id', hid),
       client.from('iezukuri_ideas').select('*').eq('household_id', hid),
       client.from('iezukuri_minutes').select('*').eq('household_id', hid),
       client.from('iezukuri_docs').select('*').eq('household_id', hid),
+      client.from('iezukuri_households').select('lists').eq('id', hid).maybeSingle(),
     ])
     const error =
       decisions.error ?? questions.error ?? ideas.error ?? minutes.error
     if (error) throw error
     if (docs.error && !isMissingTable(docs.error)) throw docs.error
+    if (house.error && !isMissingLists(house.error)) throw house.error
 
     const data: AppData = {
       decisions: (decisions.data ?? []).map(rowToDecision),
@@ -150,6 +154,7 @@ export class SupabaseStore implements Store {
       ideas: (ideas.data ?? []).map(rowToIdea),
       minutes: (minutes.data ?? []).map(rowToMinute),
       docs: docs.error ? [] : (docs.data ?? []).map(rowToDoc),
+      lists: asLists(house.error ? undefined : house.data?.lists),
     }
     this.snapshot = data
     return data
@@ -194,6 +199,12 @@ export class SupabaseStore implements Store {
         toRow: (item) => docToRow(hid, item),
         client,
       }),
+      syncLists({
+        householdId: hid,
+        next: data.lists,
+        prev: this.snapshot.lists,
+        client,
+      }),
     ])
     this.snapshot = data
   }
@@ -219,6 +230,16 @@ export class SupabaseStore implements Store {
         reload,
       )
     }
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'iezukuri_households',
+        filter: `id=eq.${hid}`,
+      },
+      reload,
+    )
     channel.subscribe()
     this.channel = channel
 
@@ -412,10 +433,37 @@ function docToRow(householdId: string, item: Doc): DocRow {
   }
 }
 
+async function syncLists({
+  householdId,
+  next,
+  prev,
+  client,
+}: {
+  householdId: string
+  next: Lists
+  prev: Lists
+  client: ReturnType<typeof getSupabase>
+}): Promise<void> {
+  if (sameJson(next, prev)) return
+  const { error } = await client
+    .from('iezukuri_households')
+    .update({ lists: next })
+    .eq('id', householdId)
+  if (error && !isMissingLists(error)) throw error
+}
+
 function isMissingTable(error: { code?: string; message?: string }): boolean {
   return (
     error.code === 'PGRST205' ||
     error.code === '42P01' ||
     /iezukuri_docs/.test(error.message ?? '')
+  )
+}
+
+function isMissingLists(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === 'PGRST204' ||
+    error.code === '42703' ||
+    /column .*lists/i.test(error.message ?? '')
   )
 }

@@ -7,19 +7,18 @@ import { dueUrgency } from '../lib/due.ts'
 import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
+import { firstOf, optionsFor, usesAreas } from '../lib/lists.ts'
 import {
-  AREAS,
-  CATEGORIES,
   STATUS_BORDER,
   STATUS_LABEL,
   type Decision,
   type Status,
 } from '../storage/types.ts'
 
-function emptyDraft(): Decision {
+function emptyDraft(cat = 'キッチン'): Decision {
   return {
     id: newId(),
-    cat: 'キッチン',
+    cat,
     title: '',
     body: '',
     status: 0,
@@ -75,8 +74,16 @@ export function DecisionsScreen() {
       .filter((item) => dueUrgency(item.due))
       .toSorted((a, b) => (a.due ?? '').localeCompare(b.due ?? ''))
     const urgentIdSet = new Set(urgentItems.map((item) => item.id))
-    const byArea = groupByArea && catFilter === '外構'
-    const keys = byArea ? [...AREAS, 'エリア未設定'] : [...CATEGORIES]
+    const byArea = groupByArea && usesAreas(catFilter)
+    const master = byArea ? data.lists.areas : data.lists.categories
+    const used = byArea
+      ? filtered.map((item) => item.area ?? 'エリア未設定')
+      : filtered.map((item) => item.cat)
+    const keys = [
+      ...master,
+      ...(byArea ? ['エリア未設定'] : []),
+      ...used.filter((name) => name && !master.includes(name) && name !== 'エリア未設定'),
+    ]
     const map = new Map<string, Decision[]>()
     for (const key of keys) map.set(key, [])
     for (const item of filtered) {
@@ -90,7 +97,7 @@ export function DecisionsScreen() {
       urgent: urgentItems,
       groups: [...map.entries()].filter(([, items]) => items.length > 0),
     }
-  }, [filtered, groupByArea, catFilter])
+  }, [filtered, groupByArea, catFilter, data.lists.areas, data.lists.categories])
 
   function toggle(id: string) {
     setOpenIds((current) => {
@@ -134,7 +141,7 @@ export function DecisionsScreen() {
       ...current,
       decisions: [{ ...draft, title: draft.title.trim(), updatedAt: nowIso() }, ...current.decisions],
     }))
-    setDraft(emptyDraft())
+    setDraft(emptyDraft(firstOf(data.lists.categories, 'キッチン')))
     setAdding(false)
   }
 
@@ -165,14 +172,17 @@ export function DecisionsScreen() {
           onChange={(event) => setCatFilter(event.target.value)}
         >
           <option value="all">すべて</option>
-          {CATEGORIES.map((cat) => (
+          {optionsFor(
+            data.lists.categories,
+            catFilter === 'all' ? undefined : catFilter,
+          ).map((cat) => (
             <option key={cat} value={cat}>
               {cat}
             </option>
           ))}
         </select>
       </label>
-      {catFilter === '外構' ? (
+      {usesAreas(catFilter) ? (
         <label className="mt-3 flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
@@ -187,7 +197,7 @@ export function DecisionsScreen() {
         type="button"
         className="btn-ghost btn-wide mt-5"
         onClick={() => {
-          setDraft(emptyDraft())
+          setDraft(emptyDraft(firstOf(data.lists.categories, 'キッチン')))
           setAdding((value) => !value)
         }}
       >
@@ -338,7 +348,8 @@ function DecisionFields({
   value: Decision
   onChange: (next: Decision) => void
 }) {
-  const showArea = value.cat === '外構' || value.cat === '外観'
+  const { data } = useData()
+  const showArea = usesAreas(value.cat)
   return (
     <div className="space-y-3">
       <WhoField
@@ -350,7 +361,7 @@ function DecisionFields({
         value={value.cat}
         onChange={(event) => onChange({ ...value, cat: event.target.value })}
       >
-        {CATEGORIES.map((cat) => (
+        {optionsFor(data.lists.categories, value.cat).map((cat) => (
           <option key={cat} value={cat}>
             {cat}
           </option>
@@ -407,7 +418,7 @@ function DecisionFields({
           }
         >
           <option value="">未設定</option>
-          {AREAS.map((area) => (
+          {optionsFor(data.lists.areas, value.area).map((area) => (
             <option key={area} value={area}>
               {area}
             </option>

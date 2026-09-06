@@ -9,11 +9,9 @@ import {
   type ExtractedFields,
 } from '../lib/extractMinute.ts'
 import { firstLine } from '../lib/preview.ts'
+import { firstOf } from '../lib/lists.ts'
 import { formatMinuteLetter, linesOf } from '../lib/minuteText.ts'
 import {
-  ASSIGNEES,
-  CATEGORIES,
-  type Assignee,
   type Decision,
   type Minute,
   type Question,
@@ -283,7 +281,11 @@ function ExtractButton({
 }
 
 function AllocateBlock({ value }: { value: Minute }) {
-  const { update } = useData()
+  const { data, update } = useData()
+  const categories = data.lists.categories
+  const assignees = data.lists.assignees
+  const defaultCat = firstOf(categories, 'キッチン')
+  const defaultTo = firstOf(assignees, '営業')
   const decided = useMemo(() => linesOf(value.decided), [value.decided])
   const questions = useMemo(() => linesOf(value.newq), [value.newq])
   const sentD = useMemo(() => new Set(value.sentDecided), [value.sentDecided])
@@ -295,7 +297,7 @@ function AllocateBlock({ value }: { value: Minute }) {
     questions.filter((line) => !value.sentNewq.includes(line)),
   )
   const [cats, setCats] = useState<Record<string, string>>({})
-  const [tos, setTos] = useState<Record<string, Assignee>>({})
+  const [tos, setTos] = useState<Record<string, string>>({})
   const [message, setMessage] = useState<string | null>(null)
 
   if (decided.length === 0 && questions.length === 0) return null
@@ -309,7 +311,7 @@ function AllocateBlock({ value }: { value: Minute }) {
     }
     const decidedRows: Decision[] = toSendD.map((line) => ({
       id: newId(),
-      cat: cats[line] ?? 'キッチン',
+      cat: cats[line] ?? defaultCat,
       title: line.slice(0, 40),
       body: line,
       status: 1,
@@ -320,7 +322,7 @@ function AllocateBlock({ value }: { value: Minute }) {
     }))
     const questionRows: Question[] = toSendQ.map((line) => ({
       id: newId(),
-      to: tos[line] ?? ASSIGNEES[0],
+      to: tos[line] ?? defaultTo,
       text: line,
       answer: '',
       done: false,
@@ -363,13 +365,13 @@ function AllocateBlock({ value }: { value: Minute }) {
         extra={(line) => (
           <select
             className="mt-1 w-full rounded-sm border border-line bg-paper px-2 py-2 text-sm"
-            value={cats[line] ?? 'キッチン'}
+            value={cats[line] ?? defaultCat}
             disabled={sentD.has(line)}
             onChange={(event) =>
               setCats((current) => ({ ...current, [line]: event.target.value }))
             }
           >
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
               </option>
@@ -390,16 +392,16 @@ function AllocateBlock({ value }: { value: Minute }) {
         extra={(line) => (
           <select
             className="mt-1 w-full rounded-sm border border-line bg-paper px-2 py-2 text-sm"
-            value={tos[line] ?? ASSIGNEES[0]}
+            value={tos[line] ?? defaultTo}
             disabled={sentQ.has(line)}
             onChange={(event) =>
               setTos((current) => ({
                 ...current,
-                [line]: event.target.value as Assignee,
+                [line]: event.target.value,
               }))
             }
           >
-            {ASSIGNEES.map((to) => (
+            {assignees.map((to) => (
               <option key={to} value={to}>
                 {to}
               </option>

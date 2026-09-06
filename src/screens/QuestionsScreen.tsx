@@ -6,13 +6,8 @@ import { WhoField, WhoStamp } from '../components/WhoField.tsx'
 import { useData } from '../app/DataProvider.tsx'
 import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
-import {
-  ASSIGNEES,
-  CATEGORIES,
-  type Assignee,
-  type Question,
-  type Who,
-} from '../storage/types.ts'
+import { firstOf, optionsFor } from '../lib/lists.ts'
+import { type Question, type Who } from '../storage/types.ts'
 
 export function QuestionsScreen() {
   const { data, update } = useData()
@@ -21,7 +16,7 @@ export function QuestionsScreen() {
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({
     id: newId(),
-    to: '営業' as Assignee,
+    to: '営業',
     text: '',
     attachments: [] as Question['attachments'],
     who: '自分' as Who,
@@ -71,7 +66,7 @@ export function QuestionsScreen() {
     }))
     setDraft({
       id: newId(),
-      to: '営業',
+      to: firstOf(data.lists.assignees, '営業'),
       text: '',
       attachments: [],
       who: '自分',
@@ -81,7 +76,7 @@ export function QuestionsScreen() {
 
   function startPromote(item: Question) {
     setPromote(item)
-    setPromoteCat('キッチン')
+    setPromoteCat(firstOf(data.lists.categories, 'キッチン'))
     setPromoteTitle(item.text)
     setPromoteBody(item.answer)
   }
@@ -129,10 +124,10 @@ export function QuestionsScreen() {
             label="宛先"
             value={draft.to}
             onChange={(event) =>
-              setDraft({ ...draft, to: event.target.value as Assignee })
+              setDraft({ ...draft, to: event.target.value })
             }
           >
-            {ASSIGNEES.map((to) => (
+            {optionsFor(data.lists.assignees, draft.to).map((to) => (
               <option key={to} value={to}>
                 {to}
               </option>
@@ -201,7 +196,7 @@ export function QuestionsScreen() {
               value={promoteCat}
               onChange={(event) => setPromoteCat(event.target.value)}
             >
-              {CATEGORIES.map((cat) => (
+              {optionsFor(data.lists.categories, promoteCat).map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
                 </option>
@@ -244,6 +239,7 @@ function QuestionCard({
   onPatch: (partial: Partial<Question>) => void
   onPromote: () => void
 }) {
+  const { data } = useData()
   return (
     <li className={`note-card ${open ? 'md:col-span-2' : ''}`}>
       <button
@@ -276,10 +272,10 @@ function QuestionCard({
             label="宛先"
             value={item.to}
             onChange={(event) =>
-              onPatch({ to: event.target.value as Assignee })
+              onPatch({ to: event.target.value })
             }
           >
-            {ASSIGNEES.map((to) => (
+            {optionsFor(data.lists.assignees, item.to).map((to) => (
               <option key={to} value={to}>
                 {to}
               </option>
