@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/extract-minute.ts": {
+    "api/extract-minute.js": {
       "maxDuration": 30
     }
   }
