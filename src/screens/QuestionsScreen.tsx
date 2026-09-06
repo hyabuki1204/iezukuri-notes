@@ -7,6 +7,7 @@ import { useData } from '../app/DataProvider.tsx'
 import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
+import { guessCategory } from '../lib/guessAllocate.ts'
 import { firstOf, optionsFor } from '../lib/lists.ts'
 import { type Question, type Who } from '../storage/types.ts'
 
@@ -93,7 +94,13 @@ export function QuestionsScreen() {
 
   function startPromote(item: Question) {
     setPromote(item)
-    setPromoteCat(firstOf(data.lists.categories, 'キッチン'))
+    setPromoteCat(
+      guessCategory(
+        `${item.text}\n${item.answer}`,
+        data.lists.categories,
+        data.decisions.map((row) => ({ cat: row.cat, title: row.title })),
+      ),
+    )
     setPromoteTitle(item.text)
     setPromoteBody(item.answer)
   }

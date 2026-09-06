@@ -9,7 +9,8 @@ import {
   type ExtractedFields,
 } from '../lib/extractMinute.ts'
 import { firstLine } from '../lib/preview.ts'
-import { firstOf } from '../lib/lists.ts'
+import { guessArea, guessAssignee, guessCategory } from '../lib/guessAllocate.ts'
+import { usesAreas } from '../lib/lists.ts'
 import { formatMinuteLetter, linesOf } from '../lib/minuteText.ts'
 import {
   type Decision,
@@ -283,9 +284,12 @@ function ExtractButton({
 function AllocateBlock({ value }: { value: Minute }) {
   const { data, update } = useData()
   const categories = data.lists.categories
+  const areas = data.lists.areas
   const assignees = data.lists.assignees
-  const defaultCat = firstOf(categories, 'キッチン')
-  const defaultTo = firstOf(assignees, '営業')
+  const hints = data.decisions.map((item) => ({
+    cat: item.cat,
+    title: item.title,
+  }))
   const decided = useMemo(() => linesOf(value.decided), [value.decided])
   const questions = useMemo(() => linesOf(value.newq), [value.newq])
   const sentD = useMemo(() => new Set(value.sentDecided), [value.sentDecided])
@@ -299,6 +303,9 @@ function AllocateBlock({ value }: { value: Minute }) {
   const [cats, setCats] = useState<Record<string, string>>({})
   const [tos, setTos] = useState<Record<string, string>>({})
   const [message, setMessage] = useState<string | null>(null)
+  const catFor = (line: string) =>
+    cats[line] ?? guessCategory(line, categories, hints)
+  const toFor = (line: string) => tos[line] ?? guessAssignee(line, assignees)
 
   if (decided.length === 0 && questions.length === 0) return null
 
@@ -309,20 +316,25 @@ function AllocateBlock({ value }: { value: Minute }) {
       setMessage('まだ送っていない行を選んでください。')
       return
     }
-    const decidedRows: Decision[] = toSendD.map((line) => ({
-      id: newId(),
-      cat: cats[line] ?? defaultCat,
-      title: line.slice(0, 40),
-      body: line,
-      status: 1,
-      drawn: false,
-      updatedAt: nowIso(),
-      attachments: [],
-      who: value.who,
-    }))
+    const decidedRows: Decision[] = toSendD.map((line) => {
+      const cat = catFor(line)
+      const area = usesAreas(cat) ? guessArea(line, areas) : undefined
+      return {
+        id: newId(),
+        cat,
+        title: line.slice(0, 40),
+        body: line,
+        status: 1,
+        drawn: false,
+        ...(area ? { area } : {}),
+        updatedAt: nowIso(),
+        attachments: [],
+        who: value.who,
+      }
+    })
     const questionRows: Question[] = toSendQ.map((line) => ({
       id: newId(),
-      to: tos[line] ?? defaultTo,
+      to: toFor(line),
       text: line,
       answer: '',
       done: false,
@@ -365,7 +377,7 @@ function AllocateBlock({ value }: { value: Minute }) {
         extra={(line) => (
           <select
             className="mt-1 w-full rounded-sm border border-line bg-paper px-2 py-2 text-sm"
-            value={cats[line] ?? defaultCat}
+            value={catFor(line)}
             disabled={sentD.has(line)}
             onChange={(event) =>
               setCats((current) => ({ ...current, [line]: event.target.value }))
@@ -392,7 +404,7 @@ function AllocateBlock({ value }: { value: Minute }) {
         extra={(line) => (
           <select
             className="mt-1 w-full rounded-sm border border-line bg-paper px-2 py-2 text-sm"
-            value={tos[line] ?? defaultTo}
+            value={toFor(line)}
             disabled={sentQ.has(line)}
             onChange={(event) =>
               setTos((current) => ({
