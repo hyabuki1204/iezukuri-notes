@@ -210,7 +210,7 @@ function QuestionCard({
   onPromote: () => void
 }) {
   return (
-    <li className="border border-line bg-card">
+    <li className={`border border-line bg-card ${open ? 'md:col-span-2' : ''}`}>
       <button
         type="button"
         className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"

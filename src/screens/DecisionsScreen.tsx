@@ -250,7 +250,9 @@ function DecisionCard({
   const urgency = dueUrgency(item.due)
   return (
     <li
-      className={`border border-line bg-card border-l-2 ${STATUS_BORDER[item.status]}`}
+      className={`border border-l-2 border-line bg-card ${STATUS_BORDER[item.status]} ${
+        open ? 'md:col-span-2' : ''
+      }`}
     >
       <button
         type="button"

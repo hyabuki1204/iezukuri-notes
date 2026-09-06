@@ -91,7 +91,10 @@ export function IdeasScreen() {
 
       <ul className="card-list">
         {data.ideas.map((item) => (
-          <li key={item.id} className="border border-line bg-card">
+          <li
+            key={item.id}
+            className={`border border-line bg-card ${openIds.has(item.id) ? 'md:col-span-2' : ''}`}
+          >
             <button
               type="button"
               className="w-full px-3 py-3 text-left"
