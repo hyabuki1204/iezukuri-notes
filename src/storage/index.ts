@@ -12,6 +12,8 @@ export {
   AREAS,
   ASSIGNEES,
   CATEGORIES,
+  STATUS_BORDER,
+  STATUS_LABEL,
   emptyAppData,
 } from './types.ts'
-export { LocalStore, STORAGE_KEY } from './local.ts'
+export { LocalStore, STORAGE_KEY, parseImportedJson } from './local.ts'

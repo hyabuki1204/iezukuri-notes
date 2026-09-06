@@ -4,25 +4,49 @@ import type { Store } from './store.ts'
 
 export const STORAGE_KEY = 'iezukuri-notes:v1'
 
-function readAppData(raw: string | null): AppData {
+function normalize(data: Partial<AppData>): AppData {
+  return {
+    decisions: Array.isArray(data.decisions) ? data.decisions : [],
+    questions: Array.isArray(data.questions) ? data.questions : [],
+    ideas: Array.isArray(data.ideas) ? data.ideas : [],
+    minutes: Array.isArray(data.minutes)
+      ? data.minutes.map((minute) => ({
+          ...minute,
+          raw: minute.raw ?? '',
+        }))
+      : [],
+  }
+}
+
+function hasAppDataKeys(value: unknown): value is Partial<AppData> {
+  if (typeof value !== 'object' || value === null) return false
+  const data = value as Partial<AppData>
+  return (
+    Array.isArray(data.decisions) &&
+    Array.isArray(data.questions) &&
+    Array.isArray(data.ideas) &&
+    Array.isArray(data.minutes)
+  )
+}
+
+export function parseAppData(raw: string | null): AppData {
   if (!raw) return emptyAppData()
   try {
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return emptyAppData()
-    const data = parsed as Partial<AppData>
-    return {
-      decisions: Array.isArray(data.decisions) ? data.decisions : [],
-      questions: Array.isArray(data.questions) ? data.questions : [],
-      ideas: Array.isArray(data.ideas) ? data.ideas : [],
-      minutes: Array.isArray(data.minutes)
-        ? data.minutes.map((minute) => ({
-            ...minute,
-            raw: minute.raw ?? '',
-          }))
-        : [],
-    }
+    return normalize(parsed as Partial<AppData>)
   } catch {
     return emptyAppData()
+  }
+}
+
+export function parseImportedJson(text: string): AppData | null {
+  try {
+    const parsed: unknown = JSON.parse(text)
+    if (!hasAppDataKeys(parsed)) return null
+    return normalize(parsed)
+  } catch {
+    return null
   }
 }
 
@@ -34,7 +58,7 @@ export class LocalStore implements Store {
   }
 
   async load(): Promise<AppData> {
-    return readAppData(this.storage.getItem(STORAGE_KEY))
+    return parseAppData(this.storage.getItem(STORAGE_KEY))
   }
 
   async save(data: AppData): Promise<void> {

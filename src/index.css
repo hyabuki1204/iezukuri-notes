@@ -26,4 +26,10 @@
   body {
     @apply m-0 bg-paper text-ink font-sans antialiased;
   }
+
+  #root {
+    margin-inline: auto;
+    max-width: 28rem;
+    background: var(--color-paper);
+  }
 }

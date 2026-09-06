@@ -1,5 +1,14 @@
 export type Status = 0 | 1 | 2 | 3
 
+export const STATUS_LABEL = ['検討中', '仮', '確定', '変更不可'] as const
+
+export const STATUS_BORDER = [
+  'border-muted',
+  'border-amber',
+  'border-green',
+  'border-ink',
+] as const
+
 export type Assignee = '営業' | '設計' | 'インテリア' | '外構' | '自分で調べる'
 
 export interface Decision {
