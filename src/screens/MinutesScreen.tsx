@@ -3,6 +3,10 @@ import { Modal } from '../components/Modal.tsx'
 import { TextArea, TextField } from '../components/Field.tsx'
 import { useData } from '../app/DataProvider.tsx'
 import { newId, nowIso, todayIsoDate } from '../lib/ids.ts'
+import {
+  extractedFieldsHaveContent,
+  type ExtractedFields,
+} from '../lib/extractMinute.ts'
 import { formatMinuteLetter, linesOf } from '../lib/minuteText.ts'
 import {
   ASSIGNEES,
@@ -246,8 +250,9 @@ function MinuteFields({
         value={value.raw}
         onChange={(event) => onChange({ ...value, raw: event.target.value })}
       />
+      <ExtractButton value={value} onChange={onChange} />
       <p className="text-xs text-muted">
-        原文からの抽出は LLM 未接続です。今は5項目を手で直せます。
+        抽出したあとも、5項目は手で直せます。
       </p>
       <TextArea
         label="決まったこと"
@@ -276,6 +281,66 @@ function MinuteFields({
         value={value.newq}
         onChange={(event) => onChange({ ...value, newq: event.target.value })}
       />
+    </div>
+  )
+}
+
+function ExtractButton({
+  value,
+  onChange,
+}: {
+  value: Minute
+  onChange: (next: Minute) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function extract() {
+    if (!value.raw.trim()) {
+      setMessage('原文を貼ってください。')
+      return
+    }
+    if (
+      extractedFieldsHaveContent(value) &&
+      !window.confirm('5項目を原文からの抽出で置き換えます。よろしいですか？')
+    ) {
+      return
+    }
+    setBusy(true)
+    setMessage(null)
+    try {
+      const response = await fetch('/api/extract-minute', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ raw: value.raw }),
+      })
+      const payload = (await response.json()) as {
+        fields?: ExtractedFields
+        error?: string
+      }
+      if (!response.ok || !payload.fields) {
+        throw new Error(payload.error ?? '抽出に失敗しました。')
+      }
+      onChange({ ...value, ...payload.fields })
+      setMessage('抽出しました。内容を確認して直してください。')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '抽出に失敗しました。')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="btn-primary btn-wide"
+        disabled={busy}
+        onClick={() => void extract()}
+      >
+        {busy ? '抽出中…' : '原文から抽出'}
+      </button>
+      {message ? <p className="mt-2 text-xs text-muted">{message}</p> : null}
     </div>
   )
 }
