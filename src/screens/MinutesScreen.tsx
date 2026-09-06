@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { Modal } from '../components/Modal.tsx'
 import { TextArea, TextField } from '../components/Field.tsx'
 import { useData } from '../app/DataProvider.tsx'
@@ -27,6 +28,7 @@ function emptyMinute(): Minute {
     theirTodo: '',
     pending: '',
     newq: '',
+    attachments: [],
   }
 }
 
@@ -89,6 +91,7 @@ export function MinutesScreen() {
       status: 1,
       drawn: false,
       updatedAt: nowIso(),
+      attachments: [],
     }))
     const questionRows: Question[] = pickedQuestions.map((line) => ({
       id: newId(),
@@ -96,6 +99,7 @@ export function MinutesScreen() {
       text: line,
       answer: '',
       done: false,
+      attachments: [],
     }))
     update((current) => ({
       ...current,
@@ -150,6 +154,7 @@ export function MinutesScreen() {
                 {item.theme || '（テーマなし）'}
               </span>
               <span className="mt-0.5 block text-xs text-muted">{item.date}</span>
+              <AttachmentHint files={item.attachments} />
             </button>
             {openIds.has(item.id) ? (
               <div className="border-t border-line px-3 py-3">
@@ -280,6 +285,11 @@ function MinuteFields({
         label="新たな疑問"
         value={value.newq}
         onChange={(event) => onChange({ ...value, newq: event.target.value })}
+      />
+      <Attachments
+        files={value.attachments}
+        ownerId={value.id}
+        onChange={(attachments) => onChange({ ...value, attachments })}
       />
     </div>
   )

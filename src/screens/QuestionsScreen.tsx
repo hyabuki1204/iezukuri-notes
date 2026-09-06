@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { Modal } from '../components/Modal.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
 import { useData } from '../app/DataProvider.tsx'
@@ -15,7 +16,12 @@ export function QuestionsScreen() {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [showDone, setShowDone] = useState(false)
   const [adding, setAdding] = useState(false)
-  const [draft, setDraft] = useState({ to: '営業' as Assignee, text: '' })
+  const [draft, setDraft] = useState({
+    id: newId(),
+    to: '営業' as Assignee,
+    text: '',
+    attachments: [] as Question['attachments'],
+  })
   const [promote, setPromote] = useState<Question | null>(null)
   const [promoteCat, setPromoteCat] = useState<string>('キッチン')
   const [promoteTitle, setPromoteTitle] = useState('')
@@ -47,11 +53,23 @@ export function QuestionsScreen() {
     update((current) => ({
       ...current,
       questions: [
-        { id: newId(), to: draft.to, text: draft.text.trim(), answer: '', done: false },
+        {
+          id: draft.id,
+          to: draft.to,
+          text: draft.text.trim(),
+          answer: '',
+          done: false,
+          attachments: draft.attachments,
+        },
         ...current.questions,
       ],
     }))
-    setDraft({ to: '営業', text: '' })
+    setDraft({
+      id: newId(),
+      to: '営業',
+      text: '',
+      attachments: [],
+    })
     setAdding(false)
   }
 
@@ -77,6 +95,7 @@ export function QuestionsScreen() {
           status: 0,
           drawn: false,
           updatedAt: nowIso(),
+          attachments: promote.attachments,
         },
         ...current.decisions,
       ],
@@ -112,6 +131,11 @@ export function QuestionsScreen() {
             label="質問"
             value={draft.text}
             onChange={(event) => setDraft({ ...draft, text: event.target.value })}
+          />
+          <Attachments
+            files={draft.attachments}
+            ownerId={draft.id}
+            onChange={(attachments) => setDraft({ ...draft, attachments })}
           />
           <button
             type="button"
@@ -219,6 +243,7 @@ function QuestionCard({
         <span>
           <span className="block text-sm text-ink">{item.text}</span>
           <span className="mt-0.5 block text-xs text-muted">{item.to}</span>
+          <AttachmentHint files={item.attachments} />
         </span>
         <span className="text-[10px] text-muted">{item.done ? '回答済' : '未'}</span>
       </button>
@@ -250,6 +275,11 @@ function QuestionCard({
             />
             回答済
           </label>
+          <Attachments
+            files={item.attachments}
+            ownerId={item.id}
+            onChange={(attachments) => onPatch({ attachments })}
+          />
           {item.done ? (
             <button
               type="button"

@@ -2,10 +2,14 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import { getSupabase } from './client.ts'
 import type { Store } from './store.ts'
 import {
+  asAttachments,
+  asDocKind,
   emptyAppData,
   type AppData,
   type Assignee,
+  type Attachment,
   type Decision,
+  type Doc,
   type Idea,
   type Minute,
   type Question,
@@ -24,6 +28,7 @@ type DecisionRow = {
   cost: number | null
   due: string | null
   updated_at: string
+  attachments: Attachment[]
 }
 
 type QuestionRow = {
@@ -33,6 +38,7 @@ type QuestionRow = {
   text: string
   answer: string
   done: boolean
+  attachments: Attachment[]
 }
 
 type IdeaRow = {
@@ -42,6 +48,7 @@ type IdeaRow = {
   tag: string
   url: string
   created_at: string
+  attachments: Attachment[]
 }
 
 type MinuteRow = {
@@ -55,6 +62,17 @@ type MinuteRow = {
   their_todo: string
   pending: string
   newq: string
+  attachments: Attachment[]
+}
+
+type DocRow = {
+  id: string
+  household_id: string
+  title: string
+  kind: string
+  note: string
+  attachments: Attachment[]
+  created_at: string
 }
 
 function asStatus(value: number): Status {
@@ -105,21 +123,24 @@ export class SupabaseStore implements Store {
   async load(): Promise<AppData> {
     const client = getSupabase()
     const hid = this.householdId
-    const [decisions, questions, ideas, minutes] = await Promise.all([
+    const [decisions, questions, ideas, minutes, docs] = await Promise.all([
       client.from('iezukuri_decisions').select('*').eq('household_id', hid),
       client.from('iezukuri_questions').select('*').eq('household_id', hid),
       client.from('iezukuri_ideas').select('*').eq('household_id', hid),
       client.from('iezukuri_minutes').select('*').eq('household_id', hid),
+      client.from('iezukuri_docs').select('*').eq('household_id', hid),
     ])
     const error =
       decisions.error ?? questions.error ?? ideas.error ?? minutes.error
     if (error) throw error
+    if (docs.error && !isMissingTable(docs.error)) throw docs.error
 
     const data: AppData = {
       decisions: (decisions.data ?? []).map(rowToDecision),
       questions: (questions.data ?? []).map(rowToQuestion),
       ideas: (ideas.data ?? []).map(rowToIdea),
       minutes: (minutes.data ?? []).map(rowToMinute),
+      docs: docs.error ? [] : (docs.data ?? []).map(rowToDoc),
     }
     this.snapshot = data
     return data
@@ -157,6 +178,13 @@ export class SupabaseStore implements Store {
         toRow: (item) => minuteToRow(hid, item),
         client,
       }),
+      syncCollection({
+        table: 'iezukuri_docs',
+        next: data.docs,
+        prev: this.snapshot.docs,
+        toRow: (item) => docToRow(hid, item),
+        client,
+      }),
     ])
     this.snapshot = data
   }
@@ -174,6 +202,7 @@ export class SupabaseStore implements Store {
       'iezukuri_questions',
       'iezukuri_ideas',
       'iezukuri_minutes',
+      'iezukuri_docs',
     ]) {
       channel.on(
         'postgres_changes',
@@ -239,6 +268,7 @@ function rowToDecision(row: DecisionRow): Decision {
     cost: row.cost ?? undefined,
     due: row.due ?? undefined,
     updatedAt: row.updated_at,
+    attachments: asAttachments(row.attachments),
   }
 }
 
@@ -255,6 +285,7 @@ function decisionToRow(householdId: string, item: Decision): DecisionRow {
     cost: item.cost ?? null,
     due: item.due ?? null,
     updated_at: item.updatedAt,
+    attachments: item.attachments ?? [],
   }
 }
 
@@ -265,6 +296,7 @@ function rowToQuestion(row: QuestionRow): Question {
     text: row.text,
     answer: row.answer,
     done: row.done,
+    attachments: asAttachments(row.attachments),
   }
 }
 
@@ -276,6 +308,7 @@ function questionToRow(householdId: string, item: Question): QuestionRow {
     text: item.text,
     answer: item.answer,
     done: item.done,
+    attachments: item.attachments ?? [],
   }
 }
 
@@ -286,6 +319,7 @@ function rowToIdea(row: IdeaRow): Idea {
     tag: row.tag,
     url: row.url,
     createdAt: row.created_at,
+    attachments: asAttachments(row.attachments),
   }
 }
 
@@ -297,6 +331,7 @@ function ideaToRow(householdId: string, item: Idea): IdeaRow {
     tag: item.tag,
     url: item.url,
     created_at: item.createdAt,
+    attachments: item.attachments ?? [],
   }
 }
 
@@ -311,6 +346,7 @@ function rowToMinute(row: MinuteRow): Minute {
     theirTodo: row.their_todo,
     pending: row.pending,
     newq: row.newq,
+    attachments: asAttachments(row.attachments),
   }
 }
 
@@ -326,5 +362,37 @@ function minuteToRow(householdId: string, item: Minute): MinuteRow {
     their_todo: item.theirTodo,
     pending: item.pending,
     newq: item.newq,
+    attachments: item.attachments ?? [],
   }
+}
+
+function rowToDoc(row: DocRow): Doc {
+  return {
+    id: row.id,
+    title: row.title,
+    kind: asDocKind(row.kind),
+    note: row.note ?? '',
+    attachments: asAttachments(row.attachments),
+    createdAt: row.created_at,
+  }
+}
+
+function docToRow(householdId: string, item: Doc): DocRow {
+  return {
+    id: item.id,
+    household_id: householdId,
+    title: item.title,
+    kind: item.kind,
+    note: item.note,
+    attachments: item.attachments ?? [],
+    created_at: item.createdAt,
+  }
+}
+
+function isMissingTable(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === 'PGRST205' ||
+    error.code === '42P01' ||
+    /iezukuri_docs/.test(error.message ?? '')
+  )
 }

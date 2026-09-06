@@ -6,7 +6,7 @@
 
 - ヘッダー3数字: 未確定 = `status <= 1` / 図面未反映 = `status >= 2 && !drawn` / 未質問 = `!done`
 - JSON I/O: ヘッダーメニュー。タブ骨組みの直後に入れる
-- 写真・スクショ・PDF: Phase 1 はやらない
+- 写真・PDF: 決定/質問/アイデア/議事録に添付。図面・見積・過去資料は資料タブ。Supabase Storage `iezukuri`、1ファイル10MB
 - 共有: white-tee-ec の `iezukuri_*`。家は1件固定。ログインも世帯コードもなし
 - kanemasa-fabric-os は触らない
 - RLS は anon 全開（世帯UUIDが秘密）。white-tee-ec を公開ECにする前に締める
@@ -23,6 +23,4 @@
 
 ## 積む
 
-- 写真・スクショ添付（アイデア、のち外構）
-- PDF埋め込み
 - PWA（ホーム画面に追加）

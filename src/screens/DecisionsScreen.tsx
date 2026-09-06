@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
+import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
 import { useData } from '../app/DataProvider.tsx'
 import { dueUrgency } from '../lib/due.ts'
+import { removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
 import {
   AREAS,
@@ -23,6 +25,7 @@ function emptyDraft(): Decision {
     status: 0,
     drawn: false,
     updatedAt: nowIso(),
+    attachments: [],
   }
 }
 
@@ -90,6 +93,8 @@ export function DecisionsScreen() {
 
   function remove(id: string) {
     if (!window.confirm('この決定を削除しますか？')) return
+    const target = data.decisions.find((item) => item.id === id)
+    if (target) void removeAttachments(target.attachments)
     update((current) => ({
       ...current,
       decisions: current.decisions.filter((item) => item.id !== id),
@@ -264,6 +269,7 @@ function DecisionCard({
             {item.drawn ? ' · 図面済' : ''}
             {item.due ? ` · ${item.due}` : ''}
           </span>
+          <AttachmentHint files={item.attachments} />
         </span>
         {urgency ? (
           <span
@@ -390,6 +396,11 @@ function DecisionFields({
             due: event.target.value || undefined,
           })
         }
+      />
+      <Attachments
+        files={value.attachments}
+        ownerId={value.id}
+        onChange={(attachments) => onChange({ ...value, attachments })}
       />
     </div>
   )

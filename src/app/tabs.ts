@@ -5,4 +5,5 @@ export const TABS: { id: Tab; label: string; tone: string }[] = [
   { id: 'questions', label: '質問', tone: 'orange' },
   { id: 'ideas', label: 'アイデア', tone: 'purple' },
   { id: 'minutes', label: '議事録', tone: 'green' },
+  { id: 'docs', label: '資料', tone: 'blue' },
 ]

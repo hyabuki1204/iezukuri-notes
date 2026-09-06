@@ -1,15 +1,19 @@
 import { useState } from 'react'
+import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { TextArea, TextField } from '../components/Field.tsx'
 import { useData } from '../app/DataProvider.tsx'
+import { removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
-import type { Idea } from '../storage/types.ts'
+import type { Attachment, Idea } from '../storage/types.ts'
 
 export function IdeasScreen() {
   const { data, update } = useData()
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const [draftId, setDraftId] = useState(newId)
   const [text, setText] = useState('')
   const [tag, setTag] = useState('')
   const [url, setUrl] = useState('')
+  const [draftFiles, setDraftFiles] = useState<Attachment[]>([])
 
   function toggle(id: string) {
     setOpenIds((current) => {
@@ -26,18 +30,21 @@ export function IdeasScreen() {
       ...current,
       ideas: [
         {
-          id: newId(),
+          id: draftId,
           text: text.trim(),
           tag: tag.trim(),
           url: url.trim(),
           createdAt: nowIso(),
+          attachments: draftFiles,
         },
         ...current.ideas,
       ],
     }))
+    setDraftId(newId())
     setText('')
     setTag('')
     setUrl('')
+    setDraftFiles([])
   }
 
   function patch(id: string, partial: Partial<Idea>) {
@@ -51,6 +58,8 @@ export function IdeasScreen() {
 
   function remove(id: string) {
     if (!window.confirm('このアイデアを削除しますか？')) return
+    const target = data.ideas.find((item) => item.id === id)
+    if (target) void removeAttachments(target.attachments)
     update((current) => ({
       ...current,
       ideas: current.ideas.filter((item) => item.id !== id),
@@ -80,6 +89,11 @@ export function IdeasScreen() {
             onChange={(event) => setUrl(event.target.value)}
           />
         </div>
+        <Attachments
+          files={draftFiles}
+          ownerId={draftId}
+          onChange={setDraftFiles}
+        />
         <button
           type="button"
           className="btn btn-wide bg-purple text-card"
@@ -104,6 +118,7 @@ export function IdeasScreen() {
               <span className="mt-0.5 block text-xs text-muted">
                 {[item.tag, item.url].filter(Boolean).join(' · ') || 'タグなし'}
               </span>
+              <AttachmentHint files={item.attachments} />
             </button>
             {openIds.has(item.id) ? (
               <div className="space-y-3 border-t border-line px-3 py-3">
@@ -121,6 +136,11 @@ export function IdeasScreen() {
                   label="URL"
                   value={item.url}
                   onChange={(event) => patch(item.id, { url: event.target.value })}
+                />
+                <Attachments
+                  files={item.attachments}
+                  ownerId={item.id}
+                  onChange={(attachments) => patch(item.id, { attachments })}
                 />
                 {item.url ? (
                   <a

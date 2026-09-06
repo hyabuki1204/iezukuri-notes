@@ -3,6 +3,7 @@ import { Header } from './components/Header.tsx'
 import { TabBar } from './components/TabBar.tsx'
 import { DecisionsScreen } from './screens/DecisionsScreen.tsx'
 import { IdeasScreen } from './screens/IdeasScreen.tsx'
+import { DocsScreen } from './screens/DocsScreen.tsx'
 import { MinutesScreen } from './screens/MinutesScreen.tsx'
 import { QuestionsScreen } from './screens/QuestionsScreen.tsx'
 
@@ -16,13 +17,14 @@ function Shell() {
   }
 
   return (
-    <div className="min-h-dvh bg-paper pb-20 md:pb-0">
+    <div className="min-h-dvh bg-paper pb-24 md:pb-0">
       <Header />
       <main className="mx-auto w-full max-w-6xl">
         {tab === 'decisions' ? <DecisionsScreen /> : null}
         {tab === 'questions' ? <QuestionsScreen /> : null}
         {tab === 'ideas' ? <IdeasScreen /> : null}
         {tab === 'minutes' ? <MinutesScreen /> : null}
+        {tab === 'docs' ? <DocsScreen /> : null}
       </main>
       <TabBar />
     </div>

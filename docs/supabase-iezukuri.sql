@@ -22,7 +22,8 @@ create table if not exists public.iezukuri_decisions (
   area text,
   cost numeric,
   due date,
-  updated_at timestamptz not null
+  updated_at timestamptz not null,
+  attachments jsonb not null default '[]'::jsonb
 );
 
 create table if not exists public.iezukuri_questions (
@@ -31,7 +32,8 @@ create table if not exists public.iezukuri_questions (
   "to" text not null,
   text text not null,
   answer text not null default '',
-  done boolean not null default false
+  done boolean not null default false,
+  attachments jsonb not null default '[]'::jsonb
 );
 
 create table if not exists public.iezukuri_ideas (
@@ -40,7 +42,8 @@ create table if not exists public.iezukuri_ideas (
   text text not null,
   tag text not null default '',
   url text not null default '',
-  created_at timestamptz not null
+  created_at timestamptz not null,
+  attachments jsonb not null default '[]'::jsonb
 );
 
 create table if not exists public.iezukuri_minutes (
@@ -53,7 +56,18 @@ create table if not exists public.iezukuri_minutes (
   my_todo text not null default '',
   their_todo text not null default '',
   pending text not null default '',
-  newq text not null default ''
+  newq text not null default '',
+  attachments jsonb not null default '[]'::jsonb
+);
+
+create table if not exists public.iezukuri_docs (
+  id uuid primary key,
+  household_id uuid not null references public.iezukuri_households (id) on delete cascade,
+  title text not null default '',
+  kind text not null default 'その他',
+  note text not null default '',
+  attachments jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null
 );
 
 create index if not exists iezukuri_decisions_household_idx
@@ -64,18 +78,22 @@ create index if not exists iezukuri_ideas_household_idx
   on public.iezukuri_ideas (household_id);
 create index if not exists iezukuri_minutes_household_idx
   on public.iezukuri_minutes (household_id);
+create index if not exists iezukuri_docs_household_idx
+  on public.iezukuri_docs (household_id);
 
 alter table public.iezukuri_households enable row level security;
 alter table public.iezukuri_decisions enable row level security;
 alter table public.iezukuri_questions enable row level security;
 alter table public.iezukuri_ideas enable row level security;
 alter table public.iezukuri_minutes enable row level security;
+alter table public.iezukuri_docs enable row level security;
 
 drop policy if exists iezukuri_households_anon on public.iezukuri_households;
 drop policy if exists iezukuri_decisions_anon on public.iezukuri_decisions;
 drop policy if exists iezukuri_questions_anon on public.iezukuri_questions;
 drop policy if exists iezukuri_ideas_anon on public.iezukuri_ideas;
 drop policy if exists iezukuri_minutes_anon on public.iezukuri_minutes;
+drop policy if exists iezukuri_docs_anon on public.iezukuri_docs;
 
 -- ログインなし。専用プロジェクトなので anon から CRUD 可。
 create policy iezukuri_households_anon on public.iezukuri_households
@@ -88,14 +106,28 @@ create policy iezukuri_ideas_anon on public.iezukuri_ideas
   for all to anon using (true) with check (true);
 create policy iezukuri_minutes_anon on public.iezukuri_minutes
   for all to anon using (true) with check (true);
+create policy iezukuri_docs_anon on public.iezukuri_docs
+  for all to anon using (true) with check (true);
 
 grant select, insert, update, delete on public.iezukuri_households to anon;
 grant select, insert, update, delete on public.iezukuri_decisions to anon;
 grant select, insert, update, delete on public.iezukuri_questions to anon;
 grant select, insert, update, delete on public.iezukuri_ideas to anon;
 grant select, insert, update, delete on public.iezukuri_minutes to anon;
+grant select, insert, update, delete on public.iezukuri_docs to anon;
 
 alter publication supabase_realtime add table public.iezukuri_decisions;
 alter publication supabase_realtime add table public.iezukuri_questions;
 alter publication supabase_realtime add table public.iezukuri_ideas;
 alter publication supabase_realtime add table public.iezukuri_minutes;
+alter publication supabase_realtime add table public.iezukuri_docs;
+
+insert into storage.buckets (id, name, public)
+values ('iezukuri', 'iezukuri', true)
+on conflict (id) do nothing;
+
+drop policy if exists iezukuri_storage_anon on storage.objects;
+create policy iezukuri_storage_anon on storage.objects
+  for all to anon
+  using (bucket_id = 'iezukuri')
+  with check (bucket_id = 'iezukuri');

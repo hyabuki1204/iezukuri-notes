@@ -14,7 +14,7 @@ import { LocalStore } from '../storage/local.ts'
 import { SupabaseStore, ensureHousehold } from '../storage/supabase.ts'
 import { emptyAppData, type AppData } from '../storage/types.ts'
 
-export type Tab = 'decisions' | 'questions' | 'ideas' | 'minutes'
+export type Tab = 'decisions' | 'questions' | 'ideas' | 'minutes' | 'docs'
 export type CloudStatus = 'local' | 'connected' | 'error'
 
 type DataContextValue = {

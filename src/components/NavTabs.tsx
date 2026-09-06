@@ -16,7 +16,7 @@ export function NavTabs({
       className={
         variant === 'header'
           ? 'flex items-center gap-2'
-          : 'grid grid-cols-4'
+          : 'grid grid-cols-5'
       }
     >
       {TABS.map((item) => (

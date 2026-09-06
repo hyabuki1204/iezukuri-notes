@@ -61,16 +61,34 @@ export function NavIcon({
       </svg>
     )
   }
+  if (id === 'minutes') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M7 4.5h10A1.5 1.5 0 0 1 18.5 6v13l-3-1.5-3 1.5-3-1.5-3 1.5V6A1.5 1.5 0 0 1 7 4.5Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M9 9h6M9 12.5h6"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    )
+  }
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
-        d="M7 4.5h10A1.5 1.5 0 0 1 18.5 6v13l-3-1.5-3 1.5-3-1.5-3 1.5V6A1.5 1.5 0 0 1 7 4.5Z"
+        d="M5 6.5h14v13H5z"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinejoin="round"
       />
       <path
-        d="M9 9h6M9 12.5h6"
+        d="M8 4.5v4M16 4.5v4M8 12h8M8 15.5h5"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"

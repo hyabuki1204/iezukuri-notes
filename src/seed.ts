@@ -3,13 +3,17 @@ import type { AppData, Decision, Question } from './storage/types.ts'
 const UPDATED = '2026-09-06T00:00:00.000Z'
 
 function decision(
-  partial: Omit<Decision, 'updatedAt' | 'drawn'> & { drawn?: boolean },
+  partial: Omit<Decision, 'updatedAt' | 'drawn' | 'attachments'> & {
+    drawn?: boolean
+  },
 ): Decision {
-  return { drawn: false, updatedAt: UPDATED, ...partial }
+  return { drawn: false, updatedAt: UPDATED, attachments: [], ...partial }
 }
 
-function question(partial: Omit<Question, 'answer' | 'done'>): Question {
-  return { answer: '', done: false, ...partial }
+function question(
+  partial: Omit<Question, 'answer' | 'done' | 'attachments'>,
+): Question {
+  return { answer: '', done: false, attachments: [], ...partial }
 }
 
 export function seedData(): AppData {
@@ -114,6 +118,7 @@ export function seedData(): AppData {
     ],
     ideas: [],
     minutes: [],
+    docs: [],
   }
 }
 
@@ -122,6 +127,7 @@ export function isEmptyData(data: AppData): boolean {
     data.decisions.length === 0 &&
     data.questions.length === 0 &&
     data.ideas.length === 0 &&
-    data.minutes.length === 0
+    data.minutes.length === 0 &&
+    data.docs.length === 0
   )
 }

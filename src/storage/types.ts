@@ -11,6 +11,19 @@ export const STATUS_BORDER = [
 
 export type Assignee = '営業' | '設計' | 'インテリア' | '外構' | '自分で調べる'
 
+export type DocKind = '図面' | '見積' | '打ち合わせ' | 'その他'
+
+export const DOC_KINDS: DocKind[] = ['図面', '見積', '打ち合わせ', 'その他']
+
+export interface Attachment {
+  id: string
+  name: string
+  mime: string
+  size: number
+  path: string
+  createdAt: string
+}
+
 export interface Decision {
   id: string
   cat: string
@@ -22,6 +35,7 @@ export interface Decision {
   cost?: number
   due?: string
   updatedAt: string
+  attachments: Attachment[]
 }
 
 export interface Question {
@@ -30,6 +44,7 @@ export interface Question {
   text: string
   answer: string
   done: boolean
+  attachments: Attachment[]
 }
 
 export interface Idea {
@@ -38,6 +53,7 @@ export interface Idea {
   tag: string
   url: string
   createdAt: string
+  attachments: Attachment[]
 }
 
 export interface Minute {
@@ -50,6 +66,16 @@ export interface Minute {
   theirTodo: string
   pending: string
   newq: string
+  attachments: Attachment[]
+}
+
+export interface Doc {
+  id: string
+  title: string
+  kind: DocKind
+  note: string
+  attachments: Attachment[]
+  createdAt: string
 }
 
 export interface AppData {
@@ -57,6 +83,7 @@ export interface AppData {
   questions: Question[]
   ideas: Idea[]
   minutes: Minute[]
+  docs: Doc[]
 }
 
 export const CATEGORIES = [
@@ -93,5 +120,28 @@ export const ASSIGNEES: Assignee[] = [
 ]
 
 export function emptyAppData(): AppData {
-  return { decisions: [], questions: [], ideas: [], minutes: [] }
+  return { decisions: [], questions: [], ideas: [], minutes: [], docs: [] }
+}
+
+export function asAttachments(value: unknown): Attachment[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const row = item as Partial<Attachment>
+    if (!row.id || !row.name || !row.mime || !row.path) return []
+    return [
+      {
+        id: String(row.id),
+        name: String(row.name),
+        mime: String(row.mime),
+        size: typeof row.size === 'number' ? row.size : 0,
+        path: String(row.path),
+        createdAt: String(row.createdAt ?? ''),
+      },
+    ]
+  })
+}
+
+export function asDocKind(value: string): DocKind {
+  return DOC_KINDS.includes(value as DocKind) ? (value as DocKind) : 'その他'
 }

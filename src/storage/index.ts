@@ -2,7 +2,10 @@ export type { Store } from './store.ts'
 export type {
   AppData,
   Assignee,
+  Attachment,
   Decision,
+  Doc,
+  DocKind,
   Idea,
   Minute,
   Question,
@@ -12,8 +15,10 @@ export {
   AREAS,
   ASSIGNEES,
   CATEGORIES,
+  DOC_KINDS,
   STATUS_BORDER,
   STATUS_LABEL,
+  asAttachments,
   emptyAppData,
 } from './types.ts'
 export { LocalStore, STORAGE_KEY, parseImportedJson } from './local.ts'

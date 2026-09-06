@@ -1,18 +1,42 @@
 import type { AppData } from './types.ts'
-import { emptyAppData } from './types.ts'
+import { asAttachments, asDocKind, emptyAppData } from './types.ts'
 import type { Store } from './store.ts'
 
 export const STORAGE_KEY = 'iezukuri-notes:v1'
 
 function normalize(data: Partial<AppData>): AppData {
   return {
-    decisions: Array.isArray(data.decisions) ? data.decisions : [],
-    questions: Array.isArray(data.questions) ? data.questions : [],
-    ideas: Array.isArray(data.ideas) ? data.ideas : [],
+    decisions: Array.isArray(data.decisions)
+      ? data.decisions.map((item) => ({
+          ...item,
+          attachments: asAttachments(item.attachments),
+        }))
+      : [],
+    questions: Array.isArray(data.questions)
+      ? data.questions.map((item) => ({
+          ...item,
+          attachments: asAttachments(item.attachments),
+        }))
+      : [],
+    ideas: Array.isArray(data.ideas)
+      ? data.ideas.map((item) => ({
+          ...item,
+          attachments: asAttachments(item.attachments),
+        }))
+      : [],
     minutes: Array.isArray(data.minutes)
       ? data.minutes.map((minute) => ({
           ...minute,
           raw: minute.raw ?? '',
+          attachments: asAttachments(minute.attachments),
+        }))
+      : [],
+    docs: Array.isArray(data.docs)
+      ? data.docs.map((doc) => ({
+          ...doc,
+          kind: asDocKind(doc.kind),
+          note: doc.note ?? '',
+          attachments: asAttachments(doc.attachments),
         }))
       : [],
   }
