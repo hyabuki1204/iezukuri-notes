@@ -110,7 +110,7 @@ export function MinutesScreen() {
     <div className="page">
       <button
         type="button"
-        className="w-full border border-line bg-card py-3 text-sm tracking-[0.12em] text-ink md:w-auto md:px-8"
+        className="btn-ghost btn-wide"
         onClick={() => {
           setDraft(emptyMinute())
           setAdding((value) => !value)
@@ -119,11 +119,11 @@ export function MinutesScreen() {
         {adding ? '作成を閉じる' : '＋ 議事録を追加'}
       </button>
       {adding ? (
-        <article className="panel mt-2 p-3 md:max-w-2xl md:p-5">
+        <article className="panel mt-3 md:max-w-2xl">
           <MinuteFields value={draft} onChange={setDraft} />
           <button
             type="button"
-            className="mt-3 w-full bg-ink py-2 text-sm tracking-[0.12em] text-card md:w-auto md:px-8"
+            className="btn btn-wide mt-3 bg-green text-card"
             onClick={saveDraft}
           >
             保存する
@@ -135,7 +135,7 @@ export function MinutesScreen() {
         {data.minutes.map((item) => (
           <li
             key={item.id}
-            className={`border border-line bg-card ${openIds.has(item.id) ? 'md:col-span-2' : ''}`}
+            className={`note-card ${openIds.has(item.id) ? 'md:col-span-2' : ''}`}
           >
             <button
               type="button"
@@ -156,14 +156,14 @@ export function MinutesScreen() {
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    className="border border-line py-2 text-sm tracking-[0.08em] text-ink"
+                    className="btn-ghost"
                     onClick={() => void copyLetter(item)}
                   >
                     {copiedId === item.id ? 'コピーした' : '担当者へ送る文面'}
                   </button>
                   <button
                     type="button"
-                    className="border border-ink py-2 text-sm tracking-[0.08em] text-ink"
+                    className="btn-ghost text-green"
                     onClick={() => openSend(item)}
                   >
                     台帳へ送る
@@ -183,7 +183,7 @@ export function MinutesScreen() {
           <label className="mb-3 block">
             <span className="mb-1 block text-xs text-muted">決定の大分類</span>
             <select
-              className="w-full border border-line bg-paper px-3 py-2 text-sm"
+              className="w-full rounded-sm border border-line bg-paper px-3 py-2.5 text-sm"
               value={sendCat}
               onChange={(event) => setSendCat(event.target.value)}
             >
@@ -208,7 +208,7 @@ export function MinutesScreen() {
           />
           <button
             type="button"
-            className="mt-3 w-full bg-ink py-2 text-sm tracking-[0.12em] text-card"
+            className="btn-primary mt-3 w-full"
             onClick={confirmSend}
           >
             送る

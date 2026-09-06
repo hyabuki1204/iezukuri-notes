@@ -88,13 +88,13 @@ export function QuestionsScreen() {
     <div className="page">
       <button
         type="button"
-        className="w-full border border-line bg-card py-3 text-sm tracking-[0.12em] text-ink md:w-auto md:px-8"
+        className="btn-ghost btn-wide"
         onClick={() => setAdding((value) => !value)}
       >
         {adding ? '追加を閉じる' : '＋ 質問を追加'}
       </button>
       {adding ? (
-        <div className="panel mt-2 space-y-3 p-3 md:max-w-xl md:p-5">
+        <div className="panel mt-3 space-y-3 md:max-w-xl">
           <SelectField
             label="宛先"
             value={draft.to}
@@ -115,7 +115,7 @@ export function QuestionsScreen() {
           />
           <button
             type="button"
-            className="w-full bg-ink py-2 text-sm tracking-[0.12em] text-card md:w-auto md:px-8"
+            className="btn btn-wide bg-orange text-card"
             onClick={addDraft}
           >
             追加する
@@ -184,7 +184,7 @@ export function QuestionsScreen() {
             />
             <button
               type="button"
-              className="w-full bg-ink py-2 text-sm tracking-[0.12em] text-card"
+              className="btn-primary w-full"
               onClick={confirmPromote}
             >
               送って質問を消す
@@ -210,7 +210,7 @@ function QuestionCard({
   onPromote: () => void
 }) {
   return (
-    <li className={`border border-line bg-card ${open ? 'md:col-span-2' : ''}`}>
+    <li className={`note-card ${open ? 'md:col-span-2' : ''}`}>
       <button
         type="button"
         className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
@@ -253,7 +253,7 @@ function QuestionCard({
           {item.done ? (
             <button
               type="button"
-              className="w-full border border-ink py-2 text-sm tracking-[0.12em] text-ink"
+              className="btn-ghost w-full"
               onClick={onPromote}
             >
               決定台帳へ送る

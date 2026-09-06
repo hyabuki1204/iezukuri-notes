@@ -1,7 +1,7 @@
 import type { TextareaHTMLAttributes, SelectHTMLAttributes, InputHTMLAttributes } from 'react'
 
 const box =
-  'w-full border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-ink'
+  'w-full rounded-sm border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none focus:border-blue'
 
 export function TextField({
   label,

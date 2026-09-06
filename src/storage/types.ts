@@ -6,7 +6,7 @@ export const STATUS_BORDER = [
   'border-muted',
   'border-amber',
   'border-green',
-  'border-ink',
+  'border-blue',
 ] as const
 
 export type Assignee = '営業' | '設計' | 'インテリア' | '外構' | '自分で調べる'

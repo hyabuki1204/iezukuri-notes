@@ -108,7 +108,7 @@ export function DecisionsScreen() {
 
   return (
     <div className="page">
-      <div className="flex flex-wrap gap-x-4 gap-y-2">
+      <div className="flex flex-wrap gap-2">
         {(
           [
             ['all', 'すべて'],
@@ -125,7 +125,7 @@ export function DecisionsScreen() {
           </Chip>
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <Chip active={catFilter === 'all'} onClick={() => setCatFilter('all')}>
           大分類
         </Chip>
@@ -152,7 +152,7 @@ export function DecisionsScreen() {
 
       <button
         type="button"
-        className="mt-5 w-full border border-line bg-card py-3 text-sm tracking-[0.12em] text-ink md:w-auto md:px-8"
+        className="btn-ghost btn-wide mt-5"
         onClick={() => {
           setDraft(emptyDraft())
           setAdding((value) => !value)
@@ -161,11 +161,11 @@ export function DecisionsScreen() {
         {adding ? '追加を閉じる' : '＋ 決定を追加'}
       </button>
       {adding ? (
-        <article className="panel mt-2 p-3 md:max-w-xl md:p-5">
+        <article className="panel mt-3 md:max-w-xl">
           <DecisionFields value={draft} onChange={setDraft} />
           <button
             type="button"
-            className="mt-3 w-full bg-ink py-2 text-sm tracking-[0.12em] text-card md:w-auto md:px-8"
+            className="btn-primary btn-wide mt-3"
             onClick={addDraft}
           >
             追加する
@@ -175,7 +175,7 @@ export function DecisionsScreen() {
 
       {urgent.length > 0 ? (
         <section className="mt-5">
-          <h2 className="text-sm tracking-[0.16em] text-amber">期限が近い・過ぎた</h2>
+          <h2 className="section-title text-orange">期限が近い・過ぎた</h2>
           <ul className="card-list mt-2">
             {urgent.map((item) => (
               <DecisionCard
@@ -193,7 +193,7 @@ export function DecisionsScreen() {
 
       {groups.map(([name, items]) => (
         <section key={name} className="mt-5">
-          <h2 className="text-sm tracking-[0.16em] text-ink">{name}</h2>
+          <h2 className="section-title">{name}</h2>
           <ul className="card-list mt-2">
             {items.map((item) => (
               <DecisionCard
@@ -225,9 +225,7 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`border-b pb-0.5 text-xs tracking-[0.14em] ${
-        active ? 'border-ink text-ink' : 'border-transparent text-muted'
-      }`}
+      className={`chip ${active ? 'chip-on' : ''}`}
     >
       {children}
     </button>
@@ -250,7 +248,7 @@ function DecisionCard({
   const urgency = dueUrgency(item.due)
   return (
     <li
-      className={`border border-l-2 border-line bg-card ${STATUS_BORDER[item.status]} ${
+      className={`note-card border-l-4 ${STATUS_BORDER[item.status]} ${
         open ? 'md:col-span-2' : ''
       }`}
     >
@@ -329,9 +327,9 @@ function DecisionFields({
             <button
               key={label}
               type="button"
-              className={`border px-2 py-2 text-sm tracking-wider ${
+              className={`rounded-sm border px-2 py-2 text-sm ${
                 value.status === status
-                  ? `${STATUS_BORDER[status as Status]} bg-paper text-ink`
+                  ? `${STATUS_BORDER[status as Status]} bg-paper font-medium text-ink`
                   : 'border-line text-muted'
               }`}
               onClick={() => onChange({ ...value, status: status as Status })}

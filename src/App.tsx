@@ -11,9 +11,7 @@ function Shell() {
 
   if (!ready) {
     return (
-      <div className="px-5 py-16 text-center text-sm tracking-wider text-muted">
-        読み込み中
-      </div>
+      <div className="px-5 py-16 text-center text-sm text-muted">読み込み中</div>
     )
   }
 

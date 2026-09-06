@@ -59,7 +59,7 @@ export function IdeasScreen() {
 
   return (
     <div className="page">
-      <section className="panel space-y-3 p-3 md:max-w-2xl md:p-5">
+      <section className="panel space-y-3 md:max-w-2xl">
         <TextArea
           label="思いついたこと"
           value={text}
@@ -82,7 +82,7 @@ export function IdeasScreen() {
         </div>
         <button
           type="button"
-          className="w-full bg-ink py-2 text-sm tracking-[0.12em] text-card md:w-auto md:px-8"
+          className="btn btn-wide bg-purple text-card"
           onClick={add}
         >
           放り込む
@@ -93,7 +93,7 @@ export function IdeasScreen() {
         {data.ideas.map((item) => (
           <li
             key={item.id}
-            className={`border border-line bg-card ${openIds.has(item.id) ? 'md:col-span-2' : ''}`}
+            className={`note-card ${openIds.has(item.id) ? 'md:col-span-2' : ''}`}
           >
             <button
               type="button"

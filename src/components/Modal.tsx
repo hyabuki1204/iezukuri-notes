@@ -15,15 +15,11 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-lg border border-line bg-card p-4 md:p-6"
+        className="w-full max-w-lg rounded-sm border border-line bg-card p-4 shadow-sm md:p-6"
       >
         <div className="mb-3 flex items-start justify-between gap-3">
-          <h2 className="text-base tracking-[0.14em] text-ink">{title}</h2>
-          <button
-            type="button"
-            className="text-sm text-muted"
-            onClick={onClose}
-          >
+          <h2 className="text-base font-bold text-ink">{title}</h2>
+          <button type="button" className="text-sm text-muted" onClick={onClose}>
             閉じる
           </button>
         </div>
