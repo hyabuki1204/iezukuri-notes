@@ -16,14 +16,14 @@ export function seedData(): AppData {
   return {
     decisions: [
       decision({
-        id: 'dec-dishwasher',
+        id: '11111111-1111-4111-8111-111111111101',
         cat: 'キッチン',
         title: '食洗機',
         body: 'フロントオープン（フルオープン）。譲れない条件。',
         status: 2,
       }),
       decision({
-        id: 'dec-kitchen-body',
+        id: '11111111-1111-4111-8111-111111111102',
         cat: 'キッチン',
         title: '本体',
         body: 'パナソニックLクラス。グラフテクトと比較中。',
@@ -31,7 +31,7 @@ export function seedData(): AppData {
         cost: 166.8,
       }),
       decision({
-        id: 'dec-kitchen-shape',
+        id: '11111111-1111-4111-8111-111111111103',
         cat: 'キッチン',
         title: '形状',
         body: 'ペニンシュラ',
@@ -39,14 +39,14 @@ export function seedData(): AppData {
         drawn: true,
       }),
       decision({
-        id: 'dec-kitchen-door',
+        id: '11111111-1111-4111-8111-111111111104',
         cat: 'キッチン',
         title: '扉の色',
         body: '濃いグレー〜ブラック系',
         status: 1,
       }),
       decision({
-        id: 'dec-cupboard',
+        id: '11111111-1111-4111-8111-111111111105',
         cat: 'キッチン',
         title: 'カップボード',
         body: '背面3m離し。動線の実寸確認。',
@@ -54,7 +54,7 @@ export function seedData(): AppData {
         cost: 46.2,
       }),
       decision({
-        id: 'dec-vanity',
+        id: '11111111-1111-4111-8111-111111111106',
         cat: '洗面・浴室・トイレ',
         title: '洗面台',
         body: '造作。アイカ・ミラタップのSR訪問後に決定。',
@@ -62,7 +62,7 @@ export function seedData(): AppData {
         cost: 50,
       }),
       decision({
-        id: 'dec-front-garden',
+        id: '11111111-1111-4111-8111-111111111107',
         cat: '外構',
         title: '前庭40坪',
         body: '人工芝＋コンクリ。割付・目地・排水勾配が未定。',
@@ -70,7 +70,7 @@ export function seedData(): AppData {
         area: '前庭40坪',
       }),
       decision({
-        id: 'dec-parking',
+        id: '11111111-1111-4111-8111-111111111108',
         cat: '外構',
         title: '駐車場ゾーニング',
         body: '台数・ドア開閉クリアランス・来客用。',
@@ -78,7 +78,7 @@ export function seedData(): AppData {
         area: '駐車場',
       }),
       decision({
-        id: 'dec-east-wall',
+        id: '11111111-1111-4111-8111-111111111109',
         cat: '外構',
         title: '東側袖壁',
         body: '高さ・幅・素材が未定。目隠しか意匠かを先に決める。',
@@ -87,27 +87,27 @@ export function seedData(): AppData {
     ],
     questions: [
       question({
-        id: 'q-deadlines',
+        id: '22222222-2222-4222-8222-222222222201',
         to: '営業',
         text: '各項目の変更締切はいつか（着工承諾／電気配線確定／外構確定）',
       }),
       question({
-        id: 'q-exteria-scope',
+        id: '22222222-2222-4222-8222-222222222202',
         to: '営業',
         text: '外構は本体工事か別途か。施主支給の範囲',
       }),
       question({
-        id: 'q-drainage',
+        id: '22222222-2222-4222-8222-222222222203',
         to: '設計',
         text: '前庭の雨水排水、勾配と桝の位置',
       }),
       question({
-        id: 'q-outlets',
+        id: '22222222-2222-4222-8222-222222222204',
         to: '設計',
         text: '屋外コンセントの数と位置（前庭・デッキ・駐車場）',
       }),
       question({
-        id: 'q-vanity-warranty',
+        id: '22222222-2222-4222-8222-222222222205',
         to: '営業',
         text: '造作洗面を他社発注する場合の取合いと保証範囲',
       }),

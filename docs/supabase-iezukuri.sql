@@ -1,6 +1,5 @@
--- white-tee-ec 専用。kanemasa-fabric-os では実行しない。
--- 既存テーブルは触らない。iezukuri_ 接頭辞のみ新規作成。
--- Supabase SQL Editor で1回実行する。
+-- iezukuri-notes（HOME org）専用。他プロジェクトでは実行しない。
+-- SQL Editor で1回実行する。
 
 create table if not exists public.iezukuri_households (
   id uuid primary key,
@@ -78,9 +77,7 @@ drop policy if exists iezukuri_questions_anon on public.iezukuri_questions;
 drop policy if exists iezukuri_ideas_anon on public.iezukuri_ideas;
 drop policy if exists iezukuri_minutes_anon on public.iezukuri_minutes;
 
--- ログインなし。世帯UUIDを知っている端末だけが UI から触る。
--- anon key があれば API 直叩きで全件読める点は、white-tee-ec を
--- 公開ECにする前に締める（docs/backlog.md）。
+-- ログインなし。専用プロジェクトなので anon から CRUD 可。
 create policy iezukuri_households_anon on public.iezukuri_households
   for all to anon using (true) with check (true);
 create policy iezukuri_decisions_anon on public.iezukuri_decisions
