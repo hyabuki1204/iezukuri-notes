@@ -27,6 +27,11 @@
 }
 
 @layer base {
+  html {
+    overflow-x: clip;
+    touch-action: pan-y;
+  }
+
   html,
   body,
   #root {
@@ -36,6 +41,7 @@
   body {
     @apply m-0 bg-paper text-ink font-sans antialiased;
     line-height: 1.6;
+    overscroll-behavior-y: none;
   }
 
   #root {
@@ -86,5 +92,11 @@
 
   .note-card {
     @apply overflow-hidden rounded-sm border border-line bg-card shadow-sm;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 6.5rem;
+  }
+
+  .app-chrome {
+    isolation: isolate;
   }
 }
