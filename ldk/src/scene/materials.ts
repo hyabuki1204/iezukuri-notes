@@ -302,6 +302,8 @@ export interface MaterialLib {
   kitchenBody: MeshStandardMaterial
   kitchenTop: MeshStandardMaterial
   led: MeshStandardMaterial
+  /** 壁クロス。昼は emissive で面の向きによる明暗差を薄め、どの壁も白に近いライトグレーに揃える */
+  wall: MeshStandardMaterial
   ceilWood: MeshStandardMaterial
   ceilWhite: MeshStandardMaterial
 }
@@ -327,6 +329,7 @@ export function createMaterials(tex: TextureSet): MaterialLib {
 
   const kitchenBody = std(lin(0.018, 0.018, 0.018), 0.6)
   const kitchenTop = std(lin(0.03, 0.03, 0.029), 0.35)
+  const wall = std(lin(0.8, 0.8, 0.797), 0.92, { emissive: lin(0.8, 0.8, 0.797), emissiveIntensity: 0 })
   const led = std(lin(0.9, 0.9, 0.9), 0.5, { emissive: lin(1, 0.76, 0.52), emissiveIntensity: 0 })
   const ceilWood = std(lin(1, 1, 1), 0.7, { map: woodTex })
   const ceilWhite = std(lin(0.8, 0.8, 0.785), 0.93)
@@ -346,7 +349,7 @@ export function createMaterials(tex: TextureSet): MaterialLib {
     "挽板フローリング_オーク": floor,
     "天井_明るい木目シート": ceilWood,
     "ウォールナット": std(lin(1, 1, 1), 0.5, { map: walnutTex }),
-    "壁_クロス_ペールグレーN9.3": std(lin(0.8, 0.8, 0.797), 0.92),
+    "壁_クロス_ペールグレーN9.3": wall,
     "TV壁_トラバーチン調大判": std(lin(1, 1, 1), 0.55, { map: tvWallTex }),
     "キッチン床_モルタル調": std(lin(1.15, 1.15, 1.13), 0.6, { map: mortarTex }),
     "見切り_ステンレスHL": new MeshStandardMaterial({ color: lin(0.55, 0.55, 0.54), roughness: 0.35, metalness: 1 }),
@@ -409,6 +412,7 @@ export function createMaterials(tex: TextureSet): MaterialLib {
     kitchenBody,
     kitchenTop,
     led,
+    wall,
     ceilWood,
     ceilWhite,
   }

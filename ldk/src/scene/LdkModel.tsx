@@ -34,6 +34,9 @@ function useMaterialLib(): MaterialLib {
  */
 const libCache = new WeakMap<HTMLImageElement, MaterialLib>()
 
+/** 昼の壁: 拡散反射を抑えた分を一様な発光で補い、窓に向く壁と横向きの壁の明暗差を小さくする */
+const WALL_DAY = { base: 0.5, fill: 0.62 }
+
 const CEILING_MESH = /^天井_仕上げ/
 
 function prepare(root: Object3D, lib: MaterialLib) {
@@ -118,6 +121,9 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, curtain, doors,
     lib.kitchenBody.roughness = p.bodyRough
     lib.kitchenTop.color.copy(p.top)
     lib.led.emissiveIntensity = time === "night" ? 6 : 0
+    const day = time === "day"
+    lib.wall.color.copy(lib.wall.emissive).multiplyScalar(day ? WALL_DAY.base : 1)
+    lib.wall.emissiveIntensity = day ? WALL_DAY.fill : 0
     invalidate()
   }, [lib, kitchen, time, invalidate])
 

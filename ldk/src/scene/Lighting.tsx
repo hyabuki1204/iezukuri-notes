@@ -82,9 +82,9 @@ export function Lighting({ time, ceiling, shadows }: { time: TimeOfDay; ceiling:
           <Lightformer form="rect" intensity={2.6} color="#eef2f6" position={[0, 0.8, 10]} scale={[18, 5, 1]} target={[0, 0, 0]} />
           <Lightformer form="rect" intensity={1.1} color="#d9b48c" position={[0, -10, 0]} scale={[20, 20, 1]} target={[0, 0, 0]} />
           <Lightformer form="rect" intensity={0.35} color="#efe6da" position={[0, 10, 0]} scale={[20, 20, 1]} target={[0, 0, 0]} />
-          <Lightformer form="rect" intensity={0.45} color="#e8ddd0" position={[-10, 0, 0]} scale={[14, 6, 1]} target={[0, 0, 0]} />
-          <Lightformer form="rect" intensity={0.45} color="#e8ddd0" position={[10, 0, 0]} scale={[14, 6, 1]} target={[0, 0, 0]} />
-          <Lightformer form="rect" intensity={0.3} color="#e8ddd0" position={[0, 0, -10]} scale={[18, 6, 1]} target={[0, 0, 0]} />
+          <Lightformer form="rect" intensity={0.45} color="#e6e6e4" position={[-10, 0, 0]} scale={[14, 6, 1]} target={[0, 0, 0]} />
+          <Lightformer form="rect" intensity={0.45} color="#e6e6e4" position={[10, 0, 0]} scale={[14, 6, 1]} target={[0, 0, 0]} />
+          <Lightformer form="rect" intensity={0.3} color="#e6e6e4" position={[0, 0, -10]} scale={[18, 6, 1]} target={[0, 0, 0]} />
         </Environment>
         <primitive object={sunTarget} />
         <directionalLight
