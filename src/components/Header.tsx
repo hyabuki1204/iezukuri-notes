@@ -80,6 +80,21 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
           </nav>
 
           <div className="relative ml-auto flex items-center gap-2">
+            <a
+              href="/ldk/"
+              className="flex h-10 items-center gap-1.5 rounded-sm border border-line bg-paper px-3 text-xs font-medium text-ink"
+              aria-label="LDK 3D ウォークスルーを開く"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Zm0 0v18m8-13.5-8 4.5-8-4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              3D
+            </a>
             <button
               type="button"
               className={`flex h-10 w-10 items-center justify-center rounded-sm border ${

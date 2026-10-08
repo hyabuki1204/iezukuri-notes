@@ -1,4 +1,4 @@
-import { SlidersHorizontal, X } from "lucide-react"
+import { ChevronLeft, SlidersHorizontal, X } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { ControlPanel } from "@/components/ControlPanel"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
@@ -182,6 +182,9 @@ export default function App() {
 
       <header className="pointer-events-none absolute top-0 left-0 max-w-[calc(100%-8.5rem)] p-3 md:max-w-none md:p-5">
         <div className="pointer-events-auto rounded-xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-md">
+          <a href="/" className="mb-1.5 inline-flex items-center gap-1 text-[11px] text-white/60 hover:text-white md:text-xs">
+            <ChevronLeft className="size-3.5" /> 家づくりメモ
+          </a>
           <h1 className="text-sm font-semibold tracking-wide md:text-base">LDK ウォークスルー</h1>
           <p className="mt-0.5 hidden text-[11px] text-white/55 sm:block md:text-xs">平屋 LDK 約25畳 ・ 南面ハイサッシ ・ 挽板フローリング</p>
           <p className="mt-2 inline-flex rounded-md bg-amber-200/90 px-2 py-0.5 text-[11px] font-medium text-neutral-950">{ceilingLabel}</p>
