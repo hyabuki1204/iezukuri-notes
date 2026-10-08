@@ -202,6 +202,59 @@ function deckTiles(src: HTMLImageElement, filter: string, size: number) {
   return canvasTexture(cv, size)
 }
 
+/**
+ * 横長の大判タイル (芋目地)。テクスチャ 1 枚 = size m 角に cols × rows 枚。
+ * 平面投影 UV で壁の端・床から目地が始まる
+ */
+function wallTiles(base: [number, number, number], cols: number, rows: number, size: number, seed: number) {
+  const S = 1024
+  const cv = document.createElement("canvas")
+  cv.width = cv.height = S
+  const ctx = cv.getContext("2d")!
+  const rnd = seeded(seed)
+  const tw = S / cols
+  const th = S / rows
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      const k = 1 + (rnd() - 0.5) * 0.06
+      ctx.fillStyle = `rgb(${base.map((c) => Math.round(c * k)).join(",")})`
+      ctx.fillRect(i * tw, j * th, tw, th)
+      for (let n = 0; n < 40; n++) {
+        const x = i * tw + rnd() * tw
+        const y = j * th + rnd() * th
+        const r = 20 + rnd() * 90
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r)
+        const c = rnd() > 0.5 ? "255,255,255" : "0,0,0"
+        g.addColorStop(0, `rgba(${c},${rnd() * 0.035})`)
+        g.addColorStop(1, `rgba(${c},0)`)
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(i * tw, j * th, tw, th)
+        ctx.clip()
+        ctx.fillStyle = g
+        ctx.fillRect(x - r, y - r, r * 2, r * 2)
+        ctx.restore()
+      }
+    }
+  }
+  const id = ctx.getImageData(0, 0, S, S)
+  const d = id.data
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (rnd() - 0.5) * 8
+    d[i] += n
+    d[i + 1] += n
+    d[i + 2] += n
+  }
+  ctx.putImageData(id, 0, 0)
+  const joint = Math.max(2, Math.round((0.004 / size) * S))
+  ctx.fillStyle = "rgb(92,92,90)"
+  for (let i = 0; i < cols; i++) ctx.fillRect(i * tw - joint / 2, 0, joint, S)
+  for (let j = 0; j < rows; j++) ctx.fillRect(0, j * th - joint / 2, S, joint)
+  ctx.fillRect(S - joint / 2, 0, joint, S)
+  ctx.fillRect(0, S - joint / 2, S, joint)
+  return canvasTexture(cv, size)
+}
+
 /** モルタル / 石目: コテムラ (大きなぼかし斑) + 細かな骨材ノイズ */
 function mottled(base: [number, number, number], blob: number, grain: number, size: number, seed: number) {
   const S = 1024
@@ -260,7 +313,8 @@ export function createMaterials(tex: TextureSet): MaterialLib {
   const mortarTex = mottled([128, 128, 125], 0.09, 26, 2.0, 11)
   const tileTex = mottled([200, 191, 174], 0.022, 10, 2.4, 23)
   const deckTex = deckTiles(tex.ash, "brightness(0.62) sepia(0.7) saturate(1.1)", 2.4)
-  const pianoTex = veneer(tex.ash, "brightness(0.5) sepia(0.85) saturate(1.5) hue-rotate(-8deg)", 1.0)
+  const tvWallTex = wallTiles([168, 168, 165], 2, 4, 2.36, 41)
+  const pianoTex = veneer(tex.ash, "brightness(0.7) sepia(0.75) saturate(1.35) hue-rotate(-18deg)", 1.0)
 
   const floor = new MeshStandardMaterial({
     map: wrap(tex.floorDiff, 1.7, true),
@@ -293,7 +347,7 @@ export function createMaterials(tex: TextureSet): MaterialLib {
     "天井_明るい木目シート": ceilWood,
     "ウォールナット": std(lin(1, 1, 1), 0.5, { map: walnutTex }),
     "壁_クロス_ペールグレーN9.3": std(lin(0.8, 0.8, 0.797), 0.92),
-    "TV壁_トラバーチン調大判": std(lin(1.08, 1.08, 1.08), 0.6, { map: tileTex }),
+    "TV壁_トラバーチン調大判": std(lin(1, 1, 1), 0.55, { map: tvWallTex }),
     "キッチン床_モルタル調": std(lin(1.15, 1.15, 1.13), 0.6, { map: mortarTex }),
     "見切り_ステンレスHL": new MeshStandardMaterial({ color: lin(0.55, 0.55, 0.54), roughness: 0.35, metalness: 1 }),
     "建具_白杢": door,
