@@ -12,6 +12,7 @@ import {
   type TimeOfDay,
 } from "./data"
 import { applyWorldUV, createMaterials, KITCHEN_PALETTE, kitchenMaterialFor, type MaterialLib } from "./materials"
+import { setCollision } from "./player"
 
 function useMaterialLib(): MaterialLib {
   const [floorDiff, floorNor, floorRough] = useTexture([
@@ -20,8 +21,18 @@ function useMaterialLib(): MaterialLib {
     asset("textures/laminate_floor_02_rough.jpg"),
   ])
   const ash = useLoader(ImageLoader, asset("textures/ash_veneer_diff.jpg"))
-  return useMemo(() => createMaterials({ floorDiff, floorNor, floorRough, ash }), [floorDiff, floorNor, floorRough, ash])
+  return useMemo(() => {
+    let lib = libCache.get(ash)
+    if (!lib) libCache.set(ash, (lib = createMaterials({ floorDiff, floorNor, floorRough, ash })))
+    return lib
+  }, [floorDiff, floorNor, floorRough, ash])
 }
+
+/**
+ * 2.5m / 2.7m の 2 モデルで同じマテリアルを使い回す。モデルごとに作ると 2048 角のキャンバスが倍になり、
+ * iOS Safari のキャンバス総メモリ上限を超えて後から作った側のテクスチャが真っ黒になる
+ */
+const libCache = new WeakMap<HTMLImageElement, MaterialLib>()
 
 const CEILING_MESH = /^天井_仕上げ/
 
@@ -91,6 +102,10 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, curtain, doors,
     applyVisibility(root, curtain, time, doors)
     invalidate()
   }, [root, curtain, time, doors, invalidate])
+
+  useEffect(() => {
+    if (visible) setCollision(root)
+  }, [root, visible, doors])
 
   useEffect(() => {
     for (const m of ceilings) m.material = ceilColor === "white" ? lib.ceilWhite : lib.ceilWood

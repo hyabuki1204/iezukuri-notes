@@ -1,3 +1,5 @@
+import type { Object3D } from "three"
+import { buildGrid, type Grid, gridBlocked } from "./collision"
 import { DATA, ROOM } from "./data"
 
 const START = DATA.cameras.v2
@@ -22,54 +24,46 @@ export const input = {
 
 export const tour = { playing: false, t: 0, onStop: [] as (() => void)[] }
 
-const RADIUS = 0.22
+/** 体の半径 [m]。家具の間の 30cm 強の隙間まで通れる */
+export const RADIUS = 0.15
 
-type Rect = [number, number, number, number]
-type Circle = [number, number, number]
+let grid: Grid | null = null
 
-const [sx0, sx1, sy0, sy1] = DATA.P.SOFA
-const [c0, c1, cy0, cy1] = DATA.P.COUNTER
-const [ocx, ocy, , ory] = DATA.P.COFFEE
-
-const RECTS: Rect[] = [
-  DATA.P.BACK,
-  DATA.P.PENINSULA,
-  [sx0, sx1, sy0, sy1],
-  [sx1, DATA.P.CHAISE_X, sy1 - 0.95, sy1],
-  [c0, c1, cy0, cy1],
-  DATA.P.PIANO,
-]
-const CIRCLES: Circle[] = [
-  [DATA.P.TABLE[0], DATA.P.TABLE[1], DATA.P.TABLE[2] + 0.38],
-  [ocx, ocy - ory * 0.45, 0.4],
-  [ocx, ocy + ory * 0.45, 0.4],
-  [6.62, 3.95, 0.3],
-  [4.0, 0.4, 0.3],
-  [6.68, 0.34, 0.18],
-  [0.62, (cy0 + cy1) / 2, 0.28],
-]
-
-export const OBSTACLES = { rects: RECTS, circles: CIRCLES }
+/** 表示中のモデル (扉の開閉を反映済み) から当たりを作り直す */
+export function setCollision(root: Object3D) {
+  grid = buildGrid(root, RADIUS)
+}
 
 export function blocked(x: number, y: number): boolean {
-  const m = 0.18
-  if (x < m || x > ROOM.W - m || y < m || y > ROOM.D - m) return true
-  for (const [x0, x1, y0, y1] of RECTS) {
-    if (x > x0 - RADIUS && x < x1 + RADIUS && y > y0 - RADIUS && y < y1 + RADIUS) return true
-  }
-  for (const [cx, cy, r] of CIRCLES) {
-    if ((x - cx) ** 2 + (y - cy) ** 2 < (r + RADIUS) ** 2) return true
-  }
-  return false
+  if (y < RADIUS) return true
+  if (!grid) return x < RADIUS || x > ROOM.W - RADIUS || y > ROOM.D - RADIUS
+  return gridBlocked(grid, x, y)
 }
 
 export function moveBy(dx: number, dy: number) {
-  if (!blocked(player.x + dx, player.y)) player.x += dx
-  if (!blocked(player.x, player.y + dy)) player.y += dy
+  // 当たりの中から始まった場合 (ソファに座った視点など) は抜け出せるように止めない
+  const stuck = blocked(player.x, player.y)
+  if (stuck || !blocked(player.x + dx, player.y)) player.x += dx
+  if (stuck || !blocked(player.x, player.y + dy)) player.y += dy
 }
 
-export function teleport(x: number, y: number, heading?: number) {
-  if (blocked(x, y)) return false
+function nearestFree(x: number, y: number): [number, number] | null {
+  if (!blocked(x, y)) return [x, y]
+  for (let r = 0.04; r <= 0.6; r += 0.04) {
+    for (let k = 0; k < 16; k++) {
+      const t = (k / 16) * Math.PI * 2
+      const px = x + Math.cos(t) * r
+      const py = y + Math.sin(t) * r
+      if (!blocked(px, py)) return [px, py]
+    }
+  }
+  return null
+}
+
+export function teleport(tx: number, ty: number, heading?: number) {
+  const free = nearestFree(tx, ty)
+  if (!free) return false
+  const [x, y] = free
   player.x = x
   player.y = y
   if (heading !== undefined) player.heading = heading
