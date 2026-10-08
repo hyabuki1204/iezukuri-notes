@@ -51,24 +51,114 @@ function seeded(seed: number) {
   return () => (s = (s * 16807) % 2147483647) / 2147483647
 }
 
+type Mat3 = [number, number, number, number, number, number, number, number, number]
+
+function filterMatrix(fn: string, v: number): { m: Mat3; k?: number } | { slope: number; intercept: number } {
+  if (fn === "brightness") return { slope: v, intercept: 0 }
+  if (fn === "contrast") return { slope: v, intercept: 0.5 - 0.5 * v }
+  if (fn === "saturate") {
+    return {
+      m: [
+        0.213 + 0.787 * v, 0.715 - 0.715 * v, 0.072 - 0.072 * v,
+        0.213 - 0.213 * v, 0.715 + 0.285 * v, 0.072 - 0.072 * v,
+        0.213 - 0.213 * v, 0.715 - 0.715 * v, 0.072 + 0.928 * v,
+      ],
+    }
+  }
+  if (fn === "sepia") {
+    const s = 1 - Math.min(1, v)
+    return {
+      m: [
+        0.393 + 0.607 * s, 0.769 - 0.769 * s, 0.189 - 0.189 * s,
+        0.349 - 0.349 * s, 0.686 + 0.314 * s, 0.168 - 0.168 * s,
+        0.272 - 0.272 * s, 0.534 - 0.534 * s, 0.131 + 0.869 * s,
+      ],
+    }
+  }
+  if (fn === "hue-rotate") {
+    const r = (v * Math.PI) / 180
+    const c = Math.cos(r)
+    const s = Math.sin(r)
+    return {
+      m: [
+        0.213 + c * 0.787 - s * 0.213, 0.715 - c * 0.715 - s * 0.715, 0.072 - c * 0.072 + s * 0.928,
+        0.213 - c * 0.213 + s * 0.143, 0.715 + c * 0.285 + s * 0.14, 0.072 - c * 0.072 - s * 0.283,
+        0.213 - c * 0.213 - s * 0.787, 0.715 - c * 0.715 + s * 0.715, 0.072 + c * 0.928 + s * 0.072,
+      ],
+    }
+  }
+  throw new Error(`unsupported filter: ${fn}`)
+}
+
+/**
+ * CSS filter 関数 (brightness / contrast / saturate / sepia / hue-rotate) を画素に直接かけた画像を描画に使う。
+ * iOS Safari は CanvasRenderingContext2D.filter を無視するため、ctx.filter には頼らない。
+ * iOS のキャンバス総メモリ上限に掛からないよう、使い終えた中間キャンバスはすぐ解放する
+ */
+function withFiltered<T>(img: HTMLImageElement, filter: string, draw: (src: HTMLCanvasElement) => T): T {
+  const cv = filtered(img, filter)
+  try {
+    return draw(cv)
+  } finally {
+    cv.width = cv.height = 0
+  }
+}
+
+function filtered(img: HTMLImageElement, filter: string): HTMLCanvasElement {
+  const ops = [...filter.matchAll(/([a-z-]+)\(([-\d.]+)(deg)?\)/g)].map((m) => filterMatrix(m[1], Number(m[2])))
+  const cv = document.createElement("canvas")
+  cv.width = img.width
+  cv.height = img.height
+  const ctx = cv.getContext("2d")!
+  ctx.drawImage(img, 0, 0)
+  const id = ctx.getImageData(0, 0, cv.width, cv.height)
+  const d = id.data
+  const clamp = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x)
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i] / 255
+    let g = d[i + 1] / 255
+    let b = d[i + 2] / 255
+    for (const op of ops) {
+      if ("m" in op) {
+        const m = op.m
+        const nr = m[0] * r + m[1] * g + m[2] * b
+        const ng = m[3] * r + m[4] * g + m[5] * b
+        const nb = m[6] * r + m[7] * g + m[8] * b
+        r = clamp(nr)
+        g = clamp(ng)
+        b = clamp(nb)
+      } else {
+        r = clamp(r * op.slope + op.intercept)
+        g = clamp(g * op.slope + op.intercept)
+        b = clamp(b * op.slope + op.intercept)
+      }
+    }
+    d[i] = r * 255
+    d[i + 1] = g * 255
+    d[i + 2] = b * 255
+  }
+  ctx.putImageData(id, 0, 0)
+  return cv
+}
+
 /** 羽目板 (幅150・V溝) を ash veneer から合成。1.5m 角で 10 枚 */
-function boards(img: HTMLImageElement, filter: string, size: number, groove = true) {
+function boards(src: HTMLImageElement, filter: string, size: number, groove = true) {
   const S = 2048
   const cv = document.createElement("canvas")
   cv.width = cv.height = S
   const ctx = cv.getContext("2d")!
-  ctx.filter = filter
   const n = 10
   const h = S / n
   const rnd = seeded(7)
-  for (let i = 0; i < n; i++) {
-    const off = rnd() * img.width
-    const sy = rnd() * (img.height - img.height / n)
-    for (const dx of [-off, img.width - off]) {
-      ctx.drawImage(img, 0, sy, img.width, img.height / n, (dx / img.width) * S, i * h, S, h)
+  withFiltered(src, filter, (img) => {
+    for (let i = 0; i < n; i++) {
+      const off = rnd() * img.width
+      const sy = rnd() * (img.height - img.height / n)
+      for (const dx of [-off, img.width - off]) {
+        ctx.drawImage(img, 0, sy, img.width, img.height / n, (dx / img.width) * S, i * h, S, h)
+      }
     }
-  }
-  ctx.filter = "none"
+  })
   if (groove) {
     ctx.fillStyle = "rgba(40,28,18,0.85)"
     for (let i = 0; i < n; i++) ctx.fillRect(0, i * h, S, 3)
@@ -76,34 +166,33 @@ function boards(img: HTMLImageElement, filter: string, size: number, groove = tr
   return canvasTexture(cv, size)
 }
 
-/** 突板1枚貼り (建具の白杢)。木目方向 = テクスチャの U */
-function veneer(img: HTMLImageElement, filter: string, size: number) {
-  const S = 2048
+/** 突板1枚貼り (建具の白杢)。木目方向 = テクスチャの U。元画像の解像度のまま使う */
+function veneer(src: HTMLImageElement, filter: string, size: number) {
   const cv = document.createElement("canvas")
-  cv.width = cv.height = S
+  cv.width = src.width
+  cv.height = src.height
   const ctx = cv.getContext("2d")!
-  ctx.filter = filter
-  ctx.drawImage(img, 0, 0, S, S)
+  withFiltered(src, filter, (img) => ctx.drawImage(img, 0, 0))
   return canvasTexture(cv, size)
 }
 
 /** 木調タイルデッキ: 600 角を 4×4 枚 (2.4m 角)。タイルごとに木目を切り出し、正方形の目地を引く */
-function deckTiles(img: HTMLImageElement, filter: string, size: number) {
-  const S = 2048
+function deckTiles(src: HTMLImageElement, filter: string, size: number) {
+  const S = 1024
   const n = 4
   const t = S / n
   const cv = document.createElement("canvas")
   cv.width = cv.height = S
   const ctx = cv.getContext("2d")!
-  ctx.filter = filter
   const rnd = seeded(31)
-  const cw = img.width / 2
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      ctx.drawImage(img, rnd() * (img.width - cw), rnd() * (img.height - cw), cw, cw, i * t, j * t, t, t)
+  withFiltered(src, filter, (img) => {
+    const cw = img.width / 2
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        ctx.drawImage(img, rnd() * (img.width - cw), rnd() * (img.height - cw), cw, cw, i * t, j * t, t, t)
+      }
     }
-  }
-  ctx.filter = "none"
+  })
   ctx.fillStyle = "rgba(70,70,66,0.95)"
   const g = Math.max(2, Math.round((0.006 / 0.6) * t))
   for (let i = 0; i < n; i++) {
