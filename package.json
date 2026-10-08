@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run build:ldk",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:ldk": "npm --prefix ldk ci && npm --prefix ldk run build -- --base=/ldk/ --outDir ../dist/ldk --emptyOutDir"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",
