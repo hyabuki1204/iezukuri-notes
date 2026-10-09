@@ -25,7 +25,4 @@ export const QUALITY: Record<Quality, QualityProfile> = {
 
 export const QUALITY_LABEL: Record<Quality, string> = { low: "LOW", medium: "MEDIUM", ultra: "ULTRA" }
 
-/** スマホは iOS Safari のメモリ上限に掛からないよう LOW から始める */
-export function defaultQuality(): Quality {
-  return matchMedia("(pointer: coarse)").matches ? "low" : "medium"
-}
+export const DEFAULT_QUALITY: Quality = "ultra"

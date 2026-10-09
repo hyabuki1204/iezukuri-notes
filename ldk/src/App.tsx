@@ -8,7 +8,7 @@ import { Minimap } from "@/components/Minimap"
 import { Button } from "@/components/ui/button"
 import { DATA, panoUrl, type Settings } from "@/scene/data"
 import { input, jumpToPreset, player, tour } from "@/scene/player"
-import { defaultQuality } from "@/scene/quality"
+import { DEFAULT_QUALITY } from "@/scene/quality"
 import { Viewer } from "@/scene/Viewer"
 
 const DEFAULTS: Settings = {
@@ -22,7 +22,7 @@ const DEFAULTS: Settings = {
   eye: "stand",
   fov: 68,
   pano: "p2",
-  quality: defaultQuality(),
+  quality: DEFAULT_QUALITY,
   tone: "agx",
 }
 
