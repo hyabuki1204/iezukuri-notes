@@ -246,6 +246,8 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, curtain, doors,
     lib.kitchenBody.color.copy(p.body)
     lib.kitchenBody.roughness = p.bodyRough
     lib.kitchenTop.color.copy(p.top)
+    lib.kitchenBody.specularIntensity = p.spec
+    lib.kitchenTop.specularIntensity = p.spec
     lib.led.emissiveIntensity = time === "night" ? 6 : 0
     const day = time === "day"
     lib.wall.color.copy(lib.wall.emissive).multiplyScalar(day ? WALL_DAY.base : 1)

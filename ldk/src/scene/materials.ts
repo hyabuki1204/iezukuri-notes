@@ -448,8 +448,8 @@ export interface MaterialLib {
   byName: Record<string, Material>
   /** ワールド座標から平面投影 UV を生成するマテリアル */
   uv: Record<string, UVMode>
-  kitchenBody: MeshStandardMaterial
-  kitchenTop: MeshStandardMaterial
+  kitchenBody: MeshPhysicalMaterial
+  kitchenTop: MeshPhysicalMaterial
   led: MeshStandardMaterial
   /** 壁クロス。昼は emissive で面の向きによる明暗差を薄め、どの壁も白に近いライトグレーに揃える */
   wall: MeshStandardMaterial
@@ -484,8 +484,8 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
     patchMaterial(mortar, { reflective: true })
   }
 
-  const kitchenBody = std(lin(0.018, 0.018, 0.018), 0.6)
-  const kitchenTop = std(lin(0.03, 0.03, 0.029), 0.35)
+  const kitchenBody = new MeshPhysicalMaterial({ color: lin(0.007, 0.007, 0.007), roughness: 0.6, specularIntensity: 0.3 })
+  const kitchenTop = new MeshPhysicalMaterial({ color: lin(0.011, 0.011, 0.0105), roughness: 0.35, specularIntensity: 0.3 })
   const cloth = opt.detail ? clothNormal(5) : undefined
   const clothExtra = cloth ? { normalMap: cloth, normalScale: new Vector2(0.35, 0.35) } : {}
   const wall = std(lin(0.8, 0.8, 0.797), 0.92, {
@@ -669,8 +669,9 @@ export function kitchenMaterialFor(name: string, lib: MaterialLib): Material | u
 }
 
 export const KITCHEN_PALETTE = {
-  black: { body: lin(0.018, 0.018, 0.018), bodyRough: 0.6, top: lin(0.03, 0.03, 0.029) },
-  white: { body: lin(0.8, 0.8, 0.78), bodyRough: 0.55, top: lin(0.8, 0.8, 0.78) },
+  // 黒は窓の映り込みで灰色に浮きやすいので、鏡面反射 (F0) も弱めて艶消しの黒に見せる
+  black: { body: lin(0.007, 0.007, 0.007), bodyRough: 0.6, top: lin(0.011, 0.011, 0.0105), spec: 0.3 },
+  white: { body: lin(0.8, 0.8, 0.78), bodyRough: 0.55, top: lin(0.8, 0.8, 0.78), spec: 1 },
 } as const
 
 /**
