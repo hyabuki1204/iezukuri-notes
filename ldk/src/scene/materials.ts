@@ -488,8 +488,8 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
   const kitchenTop = new MeshPhysicalMaterial({ color: lin(0.011, 0.011, 0.0105), roughness: 0.35, specularIntensity: 0.3 })
   const cloth = opt.detail ? clothNormal(5) : undefined
   const clothExtra = cloth ? { normalMap: cloth, normalScale: new Vector2(0.35, 0.35) } : {}
-  const wall = std(lin(0.8, 0.8, 0.797), 0.92, {
-    emissive: lin(0.8, 0.8, 0.797),
+  const wall = std(lin(0.88, 0.874, 0.855), 0.92, {
+    emissive: lin(0.88, 0.874, 0.855),
     emissiveIntensity: 0,
     ...clothExtra,
   })

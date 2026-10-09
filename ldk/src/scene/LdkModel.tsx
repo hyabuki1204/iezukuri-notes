@@ -80,7 +80,9 @@ function useMaterialLib(q: QualityProfile): MaterialLib {
 let libCache: { ash: HTMLImageElement; key: string; lib: MaterialLib } | undefined
 
 /** 昼の壁: 拡散反射を抑えた分を一様な発光で補い、窓に向く壁と横向きの壁の明暗差を小さくする */
-const WALL_DAY = { base: 0.5, fill: 0.62 }
+const WALL_DAY = { base: 0.5, fill: 0.74 }
+/** 焼き込み時の壁: 白に近いクロスに見えるよう間接光を持ち上げ、薄い発光で窓から遠い壁のくすみを抑える */
+const WALL_BAKED = { gain: 1.75, fill: 0.03 }
 
 const CEILING_MESH = /^天井_仕上げ/
 const LIGHTMAPPED = new Set(DATA.lightmap?.mats ?? [])
@@ -141,7 +143,8 @@ function bakedVariant(base: Material, lm: Texture, scale: number, reflective: bo
   // 壁クロスは昼の見た目合わせで拡散色を下げ発光で補っている (WALL_DAY)。焼き込み時は本来の色に戻す
   if (m.emissive && m.emissive.getHex() !== 0) {
     m.color.copy(m.emissive)
-    m.emissiveIntensity = 0
+    m.lightMapIntensity *= WALL_BAKED.gain
+    m.emissiveIntensity = WALL_BAKED.fill
   }
   patchMaterial(m, { lightmapped: true, reflective })
   return m
