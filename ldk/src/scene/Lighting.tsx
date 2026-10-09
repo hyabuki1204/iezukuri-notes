@@ -1,8 +1,9 @@
-import { Environment, Lightformer } from "@react-three/drei"
-import { type ReactNode, Suspense, useEffect, useMemo } from "react"
-import { Object3D, SpotLight } from "three"
+import { Environment, Lightformer, useTexture } from "@react-three/drei"
+import { type ComponentProps, type ReactNode, Suspense, useEffect, useMemo } from "react"
+import { EquirectangularReflectionMapping, Object3D, SpotLight, SRGBColorSpace } from "three"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
-import { asset, DATA, type TimeOfDay, toThree } from "./data"
+import { asset, type CeilingHeight, DATA, probeUrl, type TimeOfDay, toThree } from "./data"
+import type { QualityProfile } from "./quality"
 
 /** 窓外の景色は見た目だけなので、読み込みに失敗しても室内の表示は続ける */
 function Sky({ children }: { children: ReactNode }) {
@@ -12,6 +13,22 @@ function Sky({ children }: { children: ReactNode }) {
     </ErrorBoundary>
   )
 }
+
+/**
+ * 空の画像は通常の JPEG として読む。drei の files 指定だと JPEG をゲインマップ HDR として扱い、
+ * その描画先テクスチャが室内用の環境マップ生成と衝突して窓の外が灰色になることがある
+ */
+function SkyMap({ url, ...props }: { url: string } & Omit<ComponentProps<typeof Environment>, "map" | "files">) {
+  const tex = useTexture(asset(url))
+  useMemo(() => {
+    tex.mapping = EquirectangularReflectionMapping
+    tex.colorSpace = SRGBColorSpace
+  }, [tex])
+  return <Environment map={tex} {...props} />
+}
+
+/** 空の画像の向き。Blender の HDRI (ldk_scene.py の SKY_ROT) と揃える */
+export const SKY_ROTATION = Math.PI * 1.009
 
 const WARM = "#ffc48a"
 const NEUTRAL = "#ffd9b0"
@@ -51,7 +68,35 @@ function DownlightGlow({ ceiling }: { ceiling: number }) {
   )
 }
 
-export function Lighting({ time, ceiling, shadows }: { time: TimeOfDay; ceiling: number; shadows: boolean }) {
+/**
+ * 室内の環境光 (焼き込みなし): 屋外HDRIをそのまま当てると天井が芝生の緑を拾うため、
+ * 南面の窓明かり + 床(挽板)の照り返し + 室内の拡散光 で室内用の環境マップを作る
+ */
+function InteriorEnv() {
+  return (
+    <Environment resolution={256} environmentIntensity={1}>
+      <color attach="background" args={["#4a4540"]} />
+      <Lightformer form="rect" intensity={2.6} color="#eef2f6" position={[0, 0.8, 10]} scale={[18, 5, 1]} target={[0, 0, 0]} />
+      <Lightformer form="rect" intensity={1.1} color="#d9b48c" position={[0, -10, 0]} scale={[20, 20, 1]} target={[0, 0, 0]} />
+      <Lightformer form="rect" intensity={0.35} color="#efe6da" position={[0, 10, 0]} scale={[20, 20, 1]} target={[0, 0, 0]} />
+      <Lightformer form="rect" intensity={0.45} color="#e6e6e4" position={[-10, 0, 0]} scale={[14, 6, 1]} target={[0, 0, 0]} />
+      <Lightformer form="rect" intensity={0.45} color="#e6e6e4" position={[10, 0, 0]} scale={[14, 6, 1]} target={[0, 0, 0]} />
+      <Lightformer form="rect" intensity={0.3} color="#e6e6e4" position={[0, 0, -10]} scale={[18, 6, 1]} target={[0, 0, 0]} />
+    </Environment>
+  )
+}
+
+/** 焼き込み時の窓の外の空。Cycles の HDRI (強さ 1) と同じ露出で見えるよう LDR の JPEG を下げる */
+const BAKED_SKY = 0.3
+/** 室内プローブは部屋の中央 1 点で撮っているので、窓際の家具 (ライトマップなし) には暗い。窓からの光の分だけ持ち上げる */
+const PROBE_GAIN = 2.2
+
+export function Lighting({ time, ceiling, q, baked }: {
+  time: TimeOfDay
+  ceiling: CeilingHeight
+  q: QualityProfile
+  baked: boolean
+}) {
   const sunPos = useMemo(() => {
     const [dx, dy, dz] = DATA.sun.dir
     return toThree(3.5 + dx * 25, 3 + dy * 25, dz * 25)
@@ -66,34 +111,28 @@ export function Lighting({ time, ceiling, shadows }: { time: TimeOfDay; ceiling:
     return (
       <>
         <Sky>
-          <Environment
-            files={asset("textures/suburban_garden_sky.jpg")}
+          <SkyMap
+            url="textures/suburban_garden_sky.jpg"
             background="only"
-            backgroundIntensity={1.0}
-            backgroundRotation={[0, Math.PI * 0.62, 0]}
+            backgroundIntensity={baked ? BAKED_SKY : 1}
+            backgroundRotation={[0, SKY_ROTATION, 0]}
           />
         </Sky>
-        {/*
-          室内の環境光: 屋外HDRIをそのまま当てると天井が芝生の緑を拾うため、
-          南面の窓明かり + 床(挽板)の照り返し + 室内の拡散光 で室内用の環境マップを作る
-        */}
-        <Environment resolution={256} environmentIntensity={1}>
-          <color attach="background" args={["#4a4540"]} />
-          <Lightformer form="rect" intensity={2.6} color="#eef2f6" position={[0, 0.8, 10]} scale={[18, 5, 1]} target={[0, 0, 0]} />
-          <Lightformer form="rect" intensity={1.1} color="#d9b48c" position={[0, -10, 0]} scale={[20, 20, 1]} target={[0, 0, 0]} />
-          <Lightformer form="rect" intensity={0.35} color="#efe6da" position={[0, 10, 0]} scale={[20, 20, 1]} target={[0, 0, 0]} />
-          <Lightformer form="rect" intensity={0.45} color="#e6e6e4" position={[-10, 0, 0]} scale={[14, 6, 1]} target={[0, 0, 0]} />
-          <Lightformer form="rect" intensity={0.45} color="#e6e6e4" position={[10, 0, 0]} scale={[14, 6, 1]} target={[0, 0, 0]} />
-          <Lightformer form="rect" intensity={0.3} color="#e6e6e4" position={[0, 0, -10]} scale={[18, 6, 1]} target={[0, 0, 0]} />
-        </Environment>
+        {baked ? (
+          <Environment files={probeUrl(ceiling)} environmentIntensity={PROBE_GAIN} />
+        ) : (
+          <InteriorEnv />
+        )}
         <primitive object={sunTarget} />
         <directionalLight
           position={sunPos}
           target={sunTarget}
           intensity={4.2}
           color="#fff3e2"
-          castShadow={shadows}
-          shadow-mapSize={[4096, 4096]}
+          castShadow
+          shadow-mapSize={[q.shadowSize, q.shadowSize]}
+          shadow-radius={q.shadow === "vsm" ? 5 : 2.5}
+          shadow-blurSamples={12}
           shadow-bias={-0.0004}
           shadow-normalBias={0.025}
           shadow-camera-left={-9}
@@ -110,12 +149,7 @@ export function Lighting({ time, ceiling, shadows }: { time: TimeOfDay; ceiling:
   return (
     <>
       <Sky>
-        <Environment
-          files={asset("textures/moonlit_golf_sky.jpg")}
-          background
-          environmentIntensity={0.04}
-          backgroundIntensity={0.06}
-        />
+        <SkyMap url="textures/moonlit_golf_sky.jpg" background environmentIntensity={0.04} backgroundIntensity={0.06} />
       </Sky>
       <hemisphereLight args={["#c9b8a4", "#3a2c22", 0.12]} />
       {DATA.downlights.map(([x, y]) => (

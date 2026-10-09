@@ -8,17 +8,35 @@ import {
   type Mesh,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
+  NoColorSpace,
   RepeatWrapping,
   SRGBColorSpace,
   type Texture,
+  Vector2,
   Vector3,
 } from "three"
+import { patchMaterial } from "./patch"
 
 export interface TextureSet {
   floorDiff: Texture
   floorNor: Texture
   floorRough: Texture
   ash: HTMLImageElement
+  /** 庭の低木 (Poly Haven)。色 + 切り抜きの WebP と法線 */
+  shrubs: Record<string, [Texture, Texture]>
+  /** 以下は MEDIUM / ULTRA のみ読み込む */
+  linen?: HTMLImageElement
+  linenNor?: Texture
+  grassNor?: Texture
+}
+
+export interface MaterialOptions {
+  /** 天井・壁の法線 / 粗さ / AO マップ、ファブリック、芝生のテクスチャ */
+  detail: boolean
+  /** 透過ガラス (屈折・微弱反射)。basic は半透明の板 */
+  glass: "basic" | "transmit"
+  /** 床に平面反射を映す (FloorReflector と組で使う) */
+  reflective: boolean
 }
 
 const lin = (r: number, g: number, b: number) => new Color().setRGB(r, g, b)
@@ -37,9 +55,9 @@ function wrap(t: Texture, size: number, srgb = false) {
   return c
 }
 
-function canvasTexture(cv: HTMLCanvasElement, size: number) {
+function canvasTexture(cv: HTMLCanvasElement, size: number, srgb = true) {
   const t = new CanvasTexture(cv)
-  t.colorSpace = SRGBColorSpace
+  t.colorSpace = srgb ? SRGBColorSpace : NoColorSpace
   t.wrapS = t.wrapT = RepeatWrapping
   t.anisotropy = 8
   t.repeat.set(1 / size, 1 / size)
@@ -143,11 +161,18 @@ function filtered(img: HTMLImageElement, filter: string): HTMLCanvasElement {
 
 /** 羽目板 (幅150・V溝) を ash veneer から合成。1.5m 角で 10 枚 */
 function boards(src: HTMLImageElement, filter: string, size: number, groove = true) {
+  const cv = boardsCanvas(src, filter, groove)
+  return { map: canvasTexture(cv, size), canvas: cv }
+}
+
+const BOARD_ROWS = 10
+
+function boardsCanvas(src: HTMLImageElement, filter: string, groove: boolean) {
   const S = 2048
   const cv = document.createElement("canvas")
   cv.width = cv.height = S
   const ctx = cv.getContext("2d")!
-  const n = 10
+  const n = BOARD_ROWS
   const h = S / n
   const rnd = seeded(7)
   withFiltered(src, filter, (img) => {
@@ -163,6 +188,130 @@ function boards(src: HTMLImageElement, filter: string, size: number, groove = tr
     ctx.fillStyle = "rgba(40,28,18,0.85)"
     for (let i = 0; i < n; i++) ctx.fillRect(0, i * h, S, 3)
   }
+  return cv
+}
+
+/**
+ * 木目の濃淡を凹凸 (導管・春材) とみなし、V溝を深い溝として法線 / 粗さ / AO を作る。
+ * 粗さは G、AO は R チャンネル (three の規約)
+ */
+function reliefMaps(src: HTMLCanvasElement, rows: number, size: number) {
+  const R = 1024
+  const cv = document.createElement("canvas")
+  cv.width = cv.height = R
+  const ctx = cv.getContext("2d")!
+  ctx.drawImage(src, 0, 0, R, R)
+  const d = ctx.getImageData(0, 0, R, R).data
+  const h = new Float32Array(R * R)
+  const ao = new Float32Array(R * R).fill(1)
+  const rough = new Float32Array(R * R)
+  let mean = 0
+  for (let i = 0; i < R * R; i++) mean += (h[i] = (d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11) / 255)
+  mean /= R * R
+  const pitch = R / rows
+  const grooveHalf = Math.max(2, (0.004 / size) * R)
+  for (let y = 0; y < R; y++) {
+    const t = y % pitch
+    const dist = Math.min(t, pitch - t)
+    const g = dist < grooveHalf ? 1 - dist / grooveHalf : 0
+    const occl = dist < grooveHalf * 4 ? 1 - 0.55 * (1 - dist / (grooveHalf * 4)) ** 2 : 1
+    for (let x = 0; x < R; x++) {
+      const i = y * R + x
+      rough[i] = 0.62 + (mean - h[i]) * 0.5 + g * 0.3
+      h[i] = h[i] * 0.6 - g * 4
+      ao[i] = occl
+    }
+  }
+  const make = (fill: (o: Uint8ClampedArray, i: number) => void) => {
+    const c = document.createElement("canvas")
+    c.width = c.height = R
+    const cx = c.getContext("2d")!
+    const id = cx.createImageData(R, R)
+    for (let i = 0; i < R * R; i++) {
+      fill(id.data, i)
+      id.data[i * 4 + 3] = 255
+    }
+    cx.putImageData(id, 0, 0)
+    return canvasTexture(c, size, false)
+  }
+  const k = 2.2
+  const normalMap = make((o, i) => {
+    const x = i % R
+    const y = (i - x) / R
+    const dx = h[y * R + ((x + 1) % R)] - h[y * R + ((x + R - 1) % R)]
+    const dy = h[((y + 1) % R) * R + x] - h[((y + R - 1) % R) * R + x]
+    let nx = -dx * k
+    let ny = dy * k
+    const l = Math.hypot(nx, ny, 1)
+    nx /= l
+    ny /= l
+    o[i * 4] = (nx * 0.5 + 0.5) * 255
+    o[i * 4 + 1] = (ny * 0.5 + 0.5) * 255
+    o[i * 4 + 2] = (0.5 / l + 0.5) * 255
+  })
+  const roughnessMap = make((o, i) => {
+    o[i * 4] = o[i * 4 + 1] = o[i * 4 + 2] = Math.min(1, Math.max(0.2, rough[i])) * 255
+  })
+  const aoMap = make((o, i) => {
+    o[i * 4] = o[i * 4 + 1] = o[i * 4 + 2] = ao[i] * 255
+  })
+  cv.width = cv.height = 0
+  return { normalMap, roughnessMap, aoMap }
+}
+
+/** 壁・天井クロスの織り目エンボス (細かなノイズの凹凸)。0.5m 角でタイル */
+function clothNormal(seed: number) {
+  const R = 512
+  const rnd = seeded(seed)
+  const h = new Float32Array(R * R)
+  for (let i = 0; i < R * R; i++) h[i] = rnd()
+  for (let pass = 0; pass < 2; pass++) {
+    for (let y = 0; y < R; y++) {
+      for (let x = 0; x < R; x++) {
+        const i = y * R + x
+        h[i] = (h[i] * 2 + h[y * R + ((x + 1) % R)] + h[((y + 1) % R) * R + x]) / 4
+      }
+    }
+  }
+  const c = document.createElement("canvas")
+  c.width = c.height = R
+  const cx = c.getContext("2d")!
+  const id = cx.createImageData(R, R)
+  const k = 1.6
+  for (let y = 0; y < R; y++) {
+    for (let x = 0; x < R; x++) {
+      const i = y * R + x
+      const nx = -(h[y * R + ((x + 1) % R)] - h[y * R + ((x + R - 1) % R)]) * k
+      const ny = (h[((y + 1) % R) * R + x] - h[((y + R - 1) % R) * R + x]) * k
+      const l = Math.hypot(nx, ny, 1)
+      id.data[i * 4] = (nx / l * 0.5 + 0.5) * 255
+      id.data[i * 4 + 1] = (ny / l * 0.5 + 0.5) * 255
+      id.data[i * 4 + 2] = (0.5 / l + 0.5) * 255
+      id.data[i * 4 + 3] = 255
+    }
+  }
+  cx.putImageData(id, 0, 0)
+  return canvasTexture(c, 0.5, false)
+}
+
+/** ファブリックの柄を無彩色にして平均 0.5 (リニア ≒ 0.21) に揃える。色はマテリアルの color で付ける */
+function grayFabric(img: HTMLImageElement, size: number) {
+  const cv = document.createElement("canvas")
+  cv.width = img.width
+  cv.height = img.height
+  const ctx = cv.getContext("2d")!
+  ctx.drawImage(img, 0, 0)
+  const id = ctx.getImageData(0, 0, cv.width, cv.height)
+  const d = id.data
+  let mean = 0
+  for (let i = 0; i < d.length; i += 4) mean += d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11
+  mean /= d.length / 4
+  const k = 128 / mean
+  for (let i = 0; i < d.length; i += 4) {
+    const v = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) * k
+    d[i] = d[i + 1] = d[i + 2] = v
+  }
+  ctx.putImageData(id, 0, 0)
   return canvasTexture(cv, size)
 }
 
@@ -308,9 +457,11 @@ export interface MaterialLib {
   ceilWhite: MeshStandardMaterial
 }
 
-export function createMaterials(tex: TextureSet): MaterialLib {
-  const woodTex = boards(tex.ash, "brightness(1.36) sepia(0.12) saturate(0.8)", 1.5)
-  const walnutTex = boards(tex.ash, "brightness(0.55) sepia(0.9) saturate(1.6) hue-rotate(-12deg)", 0.8, false)
+export function createMaterials(tex: TextureSet, opt: MaterialOptions): MaterialLib {
+  const wood = boards(tex.ash, "brightness(1.36) sepia(0.12) saturate(0.8)", 1.5)
+  const woodTex = wood.map
+  const woodRelief = opt.detail ? reliefMaps(wood.canvas, BOARD_ROWS, 1.5) : undefined
+  const walnutTex = boards(tex.ash, "brightness(0.55) sepia(0.9) saturate(1.6) hue-rotate(-12deg)", 0.8, false).map
   const doorTex = veneer(tex.ash, "brightness(1.62) saturate(0.2) contrast(0.82)", 1.2)
   const mortarTex = mottled([128, 128, 125], 0.09, 26, 2.0, 11)
   const tileTex = mottled([200, 191, 174], 0.022, 10, 2.4, 23)
@@ -322,36 +473,111 @@ export function createMaterials(tex: TextureSet): MaterialLib {
     map: wrap(tex.floorDiff, 1.7, true),
     normalMap: wrap(tex.floorNor, 1.7),
     roughnessMap: wrap(tex.floorRough, 1.7),
-    roughness: 0.75,
+    roughness: opt.detail ? 0.58 : 0.75,
     color: lin(1.0, 0.97, 0.94),
   })
   floor.normalScale.set(0.6, 0.6)
 
+  const mortar = std(lin(1.15, 1.15, 1.13), 0.6, { map: mortarTex })
+  if (opt.reflective) {
+    patchMaterial(floor, { reflective: true })
+    patchMaterial(mortar, { reflective: true })
+  }
+
   const kitchenBody = std(lin(0.018, 0.018, 0.018), 0.6)
   const kitchenTop = std(lin(0.03, 0.03, 0.029), 0.35)
-  const wall = std(lin(0.8, 0.8, 0.797), 0.92, { emissive: lin(0.8, 0.8, 0.797), emissiveIntensity: 0 })
+  const cloth = opt.detail ? clothNormal(5) : undefined
+  const clothExtra = cloth ? { normalMap: cloth, normalScale: new Vector2(0.35, 0.35) } : {}
+  const wall = std(lin(0.8, 0.8, 0.797), 0.92, {
+    emissive: lin(0.8, 0.8, 0.797),
+    emissiveIntensity: 0,
+    ...clothExtra,
+  })
   const led = std(lin(0.9, 0.9, 0.9), 0.5, { emissive: lin(1, 0.76, 0.52), emissiveIntensity: 0 })
-  const ceilWood = std(lin(1, 1, 1), 0.7, { map: woodTex })
-  const ceilWhite = std(lin(0.8, 0.8, 0.785), 0.93)
+  const ceilWood = std(lin(1, 1, 1), 0.7, { map: woodTex, ...(woodRelief ?? {}) })
+  if (woodRelief) {
+    ceilWood.roughness = 1
+    ceilWood.normalScale.set(0.8, 0.8)
+    ceilWood.aoMapIntensity = 1
+  }
+  const ceilWhite = std(lin(0.8, 0.8, 0.785), 0.93, clothExtra)
   const door = std(lin(1, 1, 1), 0.62, { map: doorTex })
 
-  const glass = new MeshPhysicalMaterial({
-    color: lin(0.96, 0.98, 0.97),
-    roughness: 0.02,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.12,
-    envMapIntensity: 1.2,
-    depthWrite: false,
-  })
+  const glass =
+    opt.glass === "transmit"
+      ? new MeshPhysicalMaterial({
+          color: lin(0.9, 0.95, 0.93),
+          roughness: 0,
+          metalness: 0,
+          transmission: 1,
+          ior: 1.52,
+          thickness: 0.012,
+          attenuationColor: lin(0.86, 0.94, 0.9),
+          attenuationDistance: 0.4,
+          specularIntensity: 1,
+          envMapIntensity: 1,
+        })
+      : new MeshPhysicalMaterial({
+          color: lin(0.96, 0.98, 0.97),
+          roughness: 0.02,
+          metalness: 0,
+          transparent: true,
+          opacity: 0.12,
+          envMapIntensity: 1.2,
+          depthWrite: false,
+        })
+
+  const linen = opt.detail && tex.linen ? grayFabric(tex.linen, 0.32) : undefined
+  const linenNor = tex.linenNor && opt.detail ? wrap(tex.linenNor, 0.32) : undefined
+  const fabric = (c: Color, sheen: Color, extra: Partial<MeshPhysicalMaterial> = {}) =>
+    linen
+      ? new MeshPhysicalMaterial({
+          color: c.clone().multiplyScalar(1 / 0.216),
+          map: linen,
+          normalMap: linenNor,
+          normalScale: new Vector2(0.9, 0.9),
+          roughness: 0.92,
+          sheen: 0.8,
+          sheenRoughness: 0.7,
+          sheenColor: sheen,
+          ...extra,
+        })
+      : std(c, 0.95, extra as Partial<MeshStandardMaterial>)
+  const lawn =
+    opt.detail && tex.grassNor
+      ? std(lin(1, 1, 1), 0.95, { map: mottled([84, 115, 56], 0.16, 18, 4.0, 51), normalMap: wrap(tex.grassNor, 1.2) })
+      : std(lin(0.09, 0.17, 0.04), 0.9)
+
+  const shrubs = Object.fromEntries(
+    Object.entries(tex.shrubs).map(([name, [diff, nor]]) => {
+      for (const t of [diff, nor]) {
+        t.flipY = false
+        t.needsUpdate = true
+      }
+      diff.colorSpace = SRGBColorSpace
+      return [
+        name,
+        new MeshStandardMaterial({
+          map: diff,
+          normalMap: nor,
+          alphaTest: 0.5,
+          side: DoubleSide,
+          roughness: 0.65,
+          color: lin(0.85, 0.85, 0.85),
+        }),
+      ]
+    }),
+  )
 
   const byName: Record<string, Material> = {
+    ...shrubs,
+    "植栽帯_バークチップ": std(lin(0.07, 0.05, 0.035), 0.95),
     "挽板フローリング_オーク": floor,
     "天井_明るい木目シート": ceilWood,
     "ウォールナット": std(lin(1, 1, 1), 0.5, { map: walnutTex }),
     "壁_クロス_ペールグレーN9.3": wall,
     "TV壁_トラバーチン調大判": std(lin(1, 1, 1), 0.55, { map: tvWallTex }),
-    "キッチン床_モルタル調": std(lin(1.15, 1.15, 1.13), 0.6, { map: mortarTex }),
+    "キッチン床_モルタル調": mortar,
     "見切り_ステンレスHL": new MeshStandardMaterial({ color: lin(0.55, 0.55, 0.54), roughness: 0.35, metalness: 1 }),
     "建具_白杢": door,
     "建具_白杢_Y": door,
@@ -362,9 +588,9 @@ export function createMaterials(tex: TextureSet): MaterialLib {
     "黒スチール": new MeshStandardMaterial({ color: lin(0.02, 0.02, 0.02), roughness: 0.4, metalness: 0.6 }),
     "サッシ枠_ブラック": new MeshStandardMaterial({ color: lin(0.03, 0.03, 0.03), roughness: 0.42, metalness: 0.4 }),
     "Low-E複層ガラス": glass,
-    "ソファ_グレージュファブリック": std(lin(0.47, 0.44, 0.4), 0.95),
-    "クッション": std(lin(0.3, 0.27, 0.24), 0.95),
-    "ラグ_ウール": std(lin(0.6, 0.57, 0.52), 1),
+    "ソファ_グレージュファブリック": fabric(lin(0.47, 0.44, 0.4), lin(0.62, 0.6, 0.56)),
+    "クッション": fabric(lin(0.3, 0.27, 0.24), lin(0.45, 0.42, 0.38)),
+    "ラグ_ウール": fabric(lin(0.6, 0.57, 0.52), lin(0.7, 0.68, 0.64)),
     "トラバーチン": std(lin(1.2, 1.15, 1.08), 0.45, { map: tileTex }),
     "チェア_レザー": std(lin(0.16, 0.1, 0.07), 0.55),
     "TV_画面": std(lin(0.004, 0.004, 0.004), 0.05),
@@ -374,15 +600,22 @@ export function createMaterials(tex: TextureSet): MaterialLib {
       side: DoubleSide,
       depthWrite: false,
     }),
-    "ドレープカーテン_リネン": std(lin(0.52, 0.48, 0.43), 0.95, { side: DoubleSide }),
+    "ドレープカーテン_リネン": fabric(lin(0.52, 0.48, 0.43), lin(0.6, 0.57, 0.52), { side: DoubleSide }),
     "外壁_ダインコンクリート調": std(lin(0.52, 0.51, 0.48), 0.85),
     "テラス_木調タイルデッキ": std(lin(1, 1, 1), 0.7, { map: deckTex }),
     "ピアノ_木目": std(lin(1, 1, 1), 0.3, { map: pianoTex }),
     "鍵盤_白": std(lin(0.82, 0.8, 0.75), 0.2),
     "鍵盤_黒": std(lin(0.01, 0.01, 0.01), 0.25),
     "真鍮": new MeshStandardMaterial({ color: lin(0.8, 0.62, 0.32), roughness: 0.3, metalness: 1 }),
-    "芝生": std(lin(0.09, 0.17, 0.04), 0.9),
-    "生垣": std(lin(0.03, 0.08, 0.02), 0.85),
+    "芝生": lawn,
+    "生垣":
+      opt.detail && tex.grassNor
+        ? std(lin(1, 1, 1), 0.85, {
+            map: mottled([48, 72, 30], 0.22, 30, 1.6, 61),
+            normalMap: wrap(tex.grassNor, 0.7),
+            normalScale: new Vector2(1.6, 1.6),
+          })
+        : std(lin(0.03, 0.08, 0.02), 0.85),
     "葉": std(lin(0.07, 0.13, 0.04), 0.5, { side: DoubleSide }),
     "葉_オリーブ": std(lin(0.13, 0.15, 0.08), 0.5, { side: DoubleSide }),
     "幹": std(lin(0.12, 0.09, 0.07), 0.9),
@@ -408,6 +641,17 @@ export function createMaterials(tex: TextureSet): MaterialLib {
       "ピアノ_木目": "vertical",
       "建具_白杢": "vertical",
       "建具_白杢_Y": "vertical",
+      ...(opt.detail
+        ? {
+            "壁_クロス_ペールグレーN9.3": "plan",
+            "ソファ_グレージュファブリック": "plan",
+            "クッション": "plan",
+            "ラグ_ウール": "plan",
+            "ドレープカーテン_リネン": "plan",
+            "芝生": "plan",
+            "生垣": "plan",
+          }
+        : {}),
     },
     kitchenBody,
     kitchenTop,

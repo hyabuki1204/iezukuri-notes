@@ -5,6 +5,7 @@ import { Slider } from "@/components/ui/slider"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 import { DATA, type Settings } from "@/scene/data"
+import { QUALITY_LABEL, type Quality } from "@/scene/quality"
 
 type Opt<T extends string | number> = { value: T; label: string }
 
@@ -57,6 +58,12 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   )
 }
 
+const QUALITY_HINT: Record<Quality, string> = {
+  low: "軽量 (スマホ向け)",
+  medium: "焼き込み間接光・柔らかい影",
+  ultra: "床の映り込み・柔らかい影まで",
+}
+
 interface Props {
   s: Settings
   set: (patch: Partial<Settings>) => void
@@ -88,6 +95,29 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
       </p>
 
       <div className="h-px bg-white/10" />
+
+      {!pano && (
+        <>
+          <Row label="画質" hint={QUALITY_HINT[s.quality]}>
+            <Segmented
+              value={s.quality}
+              onChange={(quality) => set({ quality })}
+              options={(Object.keys(QUALITY_LABEL) as Quality[]).map((q) => ({ value: q, label: QUALITY_LABEL[q] }))}
+            />
+          </Row>
+          <Row label="色調" hint="AgX は静止画パースと同じ仕上げ">
+            <Segmented
+              value={s.tone}
+              onChange={(tone) => set({ tone })}
+              options={[
+                { value: "agx", label: "AgX" },
+                { value: "aces", label: "ACES" },
+              ]}
+            />
+          </Row>
+          <div className="h-px bg-white/10" />
+        </>
+      )}
 
       <Row label="天井高" hint="2.5m / 2.7m を同じ位置で比較">
         <Segmented
@@ -196,7 +226,7 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
           <div className="grid grid-cols-2 gap-1.5">
             {Object.entries(DATA.cameras).map(([k, c], i) => (
               <Button key={k} size="sm" variant="outline" onClick={() => onPreset(k)} className="h-auto justify-start py-1.5 text-left whitespace-normal">
-                <span className="text-white/50 tabular-nums">{"①②③④"[i]}</span>
+                <span className="text-white/50 tabular-nums">{"①②③④⑤⑥"[i]}</span>
                 <span className="text-[11px] leading-snug">{c.label}</span>
               </Button>
             ))}

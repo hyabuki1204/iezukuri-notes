@@ -8,6 +8,7 @@ import { Minimap } from "@/components/Minimap"
 import { Button } from "@/components/ui/button"
 import { DATA, panoUrl, type Settings } from "@/scene/data"
 import { input, jumpToPreset, player, tour } from "@/scene/player"
+import { defaultQuality } from "@/scene/quality"
 import { Viewer } from "@/scene/Viewer"
 
 const DEFAULTS: Settings = {
@@ -21,9 +22,11 @@ const DEFAULTS: Settings = {
   eye: "stand",
   fov: 68,
   pano: "p2",
+  quality: defaultQuality(),
+  tone: "agx",
 }
 
-/** URL で条件を指定できる (例: ?ceiling=2.7&ceilColor=white&time=night&view=v3&panel=0) */
+/** URL で条件を指定できる (例: ?ceiling=2.7&ceilColor=white&time=night&view=v3&panel=0&q=ultra&tone=aces) */
 const QUERY = new URLSearchParams(location.search)
 
 function initialSettings(): Settings {
@@ -44,6 +47,10 @@ function initialSettings(): Settings {
   pick("eye", ["stand", "sit"])
   pick("fov", [])
   pick("pano", Object.keys(DATA.panos))
+  pick("quality", ["low", "medium", "ultra"])
+  const q = QUERY.get("q")
+  if (q === "low" || q === "medium" || q === "ultra") s.quality = q
+  pick("tone", ["agx", "aces"])
   const view = QUERY.get("view")
   if (view && DATA.cameras[view]) {
     jumpToPreset(view)
@@ -53,6 +60,9 @@ function initialSettings(): Settings {
 }
 
 const INITIAL = initialSettings()
+
+/** iezukuri-notes に /ldk/ として組み込まれているときだけ、家づくりメモへ戻るリンクを出す */
+const EMBEDDED = import.meta.env.BASE_URL === "/ldk/"
 
 function useCoarsePointer() {
   const [coarse, setCoarse] = useState(() => matchMedia("(pointer: coarse)").matches)
@@ -182,9 +192,11 @@ export default function App() {
 
       <header className="pointer-events-none absolute top-0 left-0 max-w-[calc(100%-8.5rem)] p-3 md:max-w-none md:p-5">
         <div className="pointer-events-auto rounded-xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-md">
-          <a href="/" className="mb-1.5 inline-flex items-center gap-1 text-[11px] text-white/60 hover:text-white md:text-xs">
-            <ChevronLeft className="size-3.5" /> 家づくりメモ
-          </a>
+          {EMBEDDED && (
+            <a href="/" className="mb-1.5 inline-flex items-center gap-1 text-[11px] text-white/60 hover:text-white md:text-xs">
+              <ChevronLeft className="size-3.5" /> 家づくりメモ
+            </a>
+          )}
           <h1 className="text-sm font-semibold tracking-wide md:text-base">LDK ウォークスルー</h1>
           <p className="mt-0.5 hidden text-[11px] text-white/55 sm:block md:text-xs">平屋 LDK 約25畳 ・ 南面ハイサッシ ・ 挽板フローリング</p>
           <p className="mt-2 inline-flex rounded-md bg-amber-200/90 px-2 py-0.5 text-[11px] font-medium text-neutral-950">{ceilingLabel}</p>
