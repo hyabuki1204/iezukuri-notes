@@ -54,6 +54,7 @@ export function Viewer({ s }: { s: Settings }) {
   const q = QUALITY[s.quality]
   const day = s.time === "day"
   const baked = q.baked && day && hasLightmap(s.ceiling)
+  const exposure = EXPOSURE[s.tone][baked ? "baked" : s.time]
   return (
     <Canvas
       key={s.quality}
@@ -65,7 +66,7 @@ export function Viewer({ s }: { s: Settings }) {
       className="touch-none"
     >
       {q.shadow === "pcss" && <SoftShadows size={18} samples={12} focus={0.6} />}
-      <Exposure value={pano ? 0.9 : EXPOSURE[s.tone][baked ? "baked" : s.time]} />
+      <Exposure value={pano ? 0.9 : exposure} />
       <Player eyeHeight={eye} fov={s.fov} anchor={pano?.loc} />
       {pano ? (
         <Suspense fallback={null}>
@@ -73,7 +74,14 @@ export function Viewer({ s }: { s: Settings }) {
         </Suspense>
       ) : (
         <Suspense fallback={null}>
-          <Lighting time={s.time} ceiling={s.ceiling} q={q} baked={baked} />
+          <Lighting
+            time={s.time}
+            lights={s.lights === "on"}
+            ceiling={s.ceiling}
+            q={q}
+            baked={baked}
+            lightScale={EXPOSURE[s.tone].night / exposure}
+          />
           {([2.5, 2.7] as const).map((h) => (
             <LdkModel
               key={h}

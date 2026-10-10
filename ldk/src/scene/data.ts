@@ -11,6 +11,7 @@ export type KitchenColor = "black" | "white"
 export type CurtainState = "open" | "closed"
 export type DoorState = "closed" | "open"
 export type TimeOfDay = "day" | "night"
+export type LightState = "on" | "off"
 export type ViewMode = "walk" | "pano"
 
 export interface Settings {
@@ -21,6 +22,7 @@ export interface Settings {
   curtain: CurtainState
   doors: DoorState
   time: TimeOfDay
+  lights: LightState
   eye: "stand" | "sit"
   fov: number
   pano: string

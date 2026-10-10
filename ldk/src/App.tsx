@@ -19,6 +19,7 @@ const DEFAULTS: Settings = {
   curtain: "open",
   doors: "closed",
   time: "day",
+  lights: "on",
   eye: "stand",
   fov: 68,
   pano: "p2",
@@ -26,7 +27,7 @@ const DEFAULTS: Settings = {
   tone: "agx",
 }
 
-/** URL で条件を指定できる (例: ?ceiling=2.7&ceilColor=white&time=night&view=v3&panel=0&q=ultra&tone=aces) */
+/** URL で条件を指定できる (例: ?ceiling=2.7&ceilColor=white&time=night&lights=off&view=v3&panel=0&q=ultra&tone=aces) */
 const QUERY = new URLSearchParams(location.search)
 
 function initialSettings(): Settings {
@@ -44,6 +45,7 @@ function initialSettings(): Settings {
   pick("curtain", ["open", "closed"])
   pick("doors", ["open", "closed"])
   pick("time", ["day", "night"])
+  pick("lights", ["on", "off"])
   pick("eye", ["stand", "sit"])
   pick("fov", [])
   pick("pano", Object.keys(DATA.panos))

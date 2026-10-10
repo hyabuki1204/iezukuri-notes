@@ -32,18 +32,18 @@ export const SKY_ROTATION = Math.PI * 1.009
 
 const NEUTRAL = "#ffd9b0"
 
-function Spot({ x, y, z, intensity, angle, color, tx, ty, tz }: {
-  x: number; y: number; z: number; intensity: number; angle: number; color: string
+function Spot({ x, y, z, intensity, angle, penumbra = 0.6, color, tx, ty, tz }: {
+  x: number; y: number; z: number; intensity: number; angle: number; penumbra?: number; color: string
   tx?: number; ty?: number; tz?: number
 }) {
   const light = useMemo(() => {
-    const l = new SpotLight(color, intensity, 9, angle, 0.6, 2)
+    const l = new SpotLight(color, intensity, 9, angle, penumbra, 2)
     l.position.copy(toThree(x, y, z))
     const t = new Object3D()
     t.position.copy(toThree(tx ?? x, ty ?? y, tz ?? 0))
     l.target = t
     return l
-  }, [x, y, z, intensity, angle, color, tx, ty, tz])
+  }, [x, y, z, intensity, angle, penumbra, color, tx, ty, tz])
   useEffect(() => () => light.dispose(), [light])
   return (
     <>
@@ -53,15 +53,39 @@ function Spot({ x, y, z, intensity, angle, color, tx, ty, tz }: {
   )
 }
 
-/** 夜景用: ダウンライトの発光面 (器具そのものが光って見えるように) */
-function DownlightGlow({ ceiling }: { ceiling: number }) {
+/** ダウンライト 1 灯の明るさ (夜の露出での値)。広角の拡散型 (1/2 角 約 52°) */
+const DOWNLIGHT = { intensity: 20, angle: 0.9, penumbra: 0.75 }
+/**
+ * 昼は焼き込みの間接光と露出を日差しに合わせているため、器具の明るさそのままでは部屋全体が白く浮く。
+ * 床や家具に落ちる光は控えめにし、発光面だけ本来の明るさで見せる
+ */
+const DAY_SPILL = 0.3
+/** 夜はリアルタイムの光だけなので、床・家具からの照り返しで天井と壁の上部が明るくなる分を半球光で補う */
+const NIGHT_BOUNCE = { on: 0.55, off: 0.12 }
+
+/**
+ * ライン内のダウンライト。器具の明るさは昼夜で同じなので、露出の高い昼は scale (夜の露出 / 現在の露出) で弱めて
+ * 同じ明るさに見せる。発光面は昼でも光って見える
+ */
+function Downlights({ ceiling, scale, spill }: { ceiling: number; scale: number; spill: number }) {
   return (
     <>
       {DATA.downlights.map(([x, y]) => (
-        <mesh key={`${x}-${y}`} position={toThree(x, y, ceiling - 0.0245)} rotation={[Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.026, 24]} />
-          <meshBasicMaterial color={[6, 5, 4]} toneMapped />
-        </mesh>
+        <group key={`${x}-${y}`}>
+          <Spot
+            x={x}
+            y={y}
+            z={ceiling - 0.03}
+            intensity={DOWNLIGHT.intensity * scale * spill}
+            angle={DOWNLIGHT.angle}
+            penumbra={DOWNLIGHT.penumbra}
+            color={NEUTRAL}
+          />
+          <mesh position={toThree(x, y, ceiling - 0.0245)} rotation={[Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.026, 24]} />
+            <meshBasicMaterial color={[8 * scale, 6.6 * scale, 5 * scale]} toneMapped />
+          </mesh>
+        </group>
       ))}
     </>
   )
@@ -90,11 +114,14 @@ const BAKED_SKY = 0.3
 /** 室内プローブは部屋の中央 1 点で撮っているので、窓際の家具 (ライトマップなし) には暗い。窓からの光の分だけ持ち上げる */
 const PROBE_GAIN = 2.2
 
-export function Lighting({ time, ceiling, q, baked }: {
+export function Lighting({ time, lights, ceiling, q, baked, lightScale }: {
   time: TimeOfDay
+  lights: boolean
   ceiling: CeilingHeight
   q: QualityProfile
   baked: boolean
+  /** 夜の露出 / 現在の露出 */
+  lightScale: number
 }) {
   const sunPos = useMemo(() => {
     const [dx, dy, dz] = DATA.sun.dir
@@ -141,6 +168,7 @@ export function Lighting({ time, ceiling, q, baked }: {
           shadow-camera-near={1}
           shadow-camera-far={60}
         />
+        {lights && <Downlights ceiling={ceiling} scale={lightScale} spill={DAY_SPILL} />}
       </>
     )
   }
@@ -150,16 +178,17 @@ export function Lighting({ time, ceiling, q, baked }: {
       <Sky>
         <SkyMap url="textures/moonlit_golf_sky.jpg" background environmentIntensity={0.04} backgroundIntensity={0.06} />
       </Sky>
-      <hemisphereLight args={["#c9b8a4", "#3a2c22", 0.12]} />
-      {DATA.downlights.map(([x, y]) => (
-        <Spot key={`${x}-${y}`} x={x} y={y} z={ceiling - 0.03} intensity={8} angle={Math.PI / 5.2} color={NEUTRAL} />
-      ))}
+      {lights ? (
+        <hemisphereLight args={["#b9a894", "#c79a6c", NIGHT_BOUNCE.on]} />
+      ) : (
+        <hemisphereLight args={["#c9b8a4", "#3a2c22", NIGHT_BOUNCE.off]} />
+      )}
+      {lights && <Downlights ceiling={ceiling} scale={lightScale} spill={1} />}
       {[1, 3, 5, 7].map((x) => (
         <Spot key={x} x={x} y={-0.75} z={ceiling - 0.02} intensity={8} angle={Math.PI / 4} color={NEUTRAL} />
       ))}
       <Spot x={1} y={-5.4} z={0.05} tx={1} ty={-6} tz={3.5} intensity={60} angle={Math.PI / 9} color={NEUTRAL} />
       <Spot x={7.6} y={-6.2} z={0.05} tx={7.6} ty={-6.8} tz={3} intensity={45} angle={Math.PI / 9} color={NEUTRAL} />
-      <DownlightGlow ceiling={ceiling} />
     </>
   )
 }

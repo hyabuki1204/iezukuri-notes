@@ -173,6 +173,17 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
             ]}
           />
         </Row>
+        <Row label="照明">
+          <Segmented
+            value={s.lights}
+            disabled={pano}
+            onChange={(lights) => set({ lights })}
+            options={[
+              { value: "on", label: "ON" },
+              { value: "off", label: "OFF" },
+            ]}
+          />
+        </Row>
         <Row label="ハイドア">
           <Segmented
             value={s.doors}
