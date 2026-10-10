@@ -30,7 +30,6 @@ function SkyMap({ url, ...props }: { url: string } & Omit<ComponentProps<typeof 
 /** 空の画像の向き。Blender の HDRI (ldk_scene.py の SKY_ROT) と揃える */
 export const SKY_ROTATION = Math.PI * 1.009
 
-const WARM = "#ffc48a"
 const NEUTRAL = "#ffd9b0"
 
 function Spot({ x, y, z, intensity, angle, color, tx, ty, tz }: {
@@ -59,8 +58,8 @@ function DownlightGlow({ ceiling }: { ceiling: number }) {
   return (
     <>
       {DATA.downlights.map(([x, y]) => (
-        <mesh key={`${x}-${y}`} position={toThree(x, y, ceiling - 0.006)} rotation={[Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.032, 24]} />
+        <mesh key={`${x}-${y}`} position={toThree(x, y, ceiling - 0.0245)} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.026, 24]} />
           <meshBasicMaterial color={[6, 5, 4]} toneMapped />
         </mesh>
       ))}
@@ -153,10 +152,8 @@ export function Lighting({ time, ceiling, q, baked }: {
       </Sky>
       <hemisphereLight args={["#c9b8a4", "#3a2c22", 0.12]} />
       {DATA.downlights.map(([x, y]) => (
-        <Spot key={`${x}-${y}`} x={x} y={y} z={ceiling - 0.02} intensity={9} angle={Math.PI / 5.2} color={NEUTRAL} />
+        <Spot key={`${x}-${y}`} x={x} y={y} z={ceiling - 0.03} intensity={8} angle={Math.PI / 5.2} color={NEUTRAL} />
       ))}
-      <Spot x={DATA.P.TABLE[0]} y={DATA.P.TABLE[1]} z={1.48} intensity={5} angle={Math.PI / 3} color={WARM} />
-      <pointLight position={toThree(DATA.P.TABLE[0], DATA.P.TABLE[1], 1.45)} intensity={0.6} distance={4} color={WARM} />
       {[1, 3, 5, 7].map((x) => (
         <Spot key={x} x={x} y={-0.75} z={ceiling - 0.02} intensity={8} angle={Math.PI / 4} color={NEUTRAL} />
       ))}
