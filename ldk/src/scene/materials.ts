@@ -474,9 +474,10 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
     normalMap: wrap(tex.floorNor, 1.7),
     roughnessMap: wrap(tex.floorRough, 1.7),
     roughness: opt.detail ? 0.58 : 0.75,
-    color: lin(1.0, 0.97, 0.94),
+    color: lin(1.45, 1.38, 1.28),
   })
   floor.normalScale.set(0.6, 0.6)
+  floor.userData.lightMapGain = 2.1
 
   const mortar = std(lin(1.15, 1.15, 1.13), 0.6, { map: mortarTex })
   if (opt.reflective) {

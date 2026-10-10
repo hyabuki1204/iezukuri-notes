@@ -139,7 +139,7 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
 function bakedVariant(base: Material, lm: Texture, scale: number, reflective: boolean) {
   const m = base.clone() as MeshStandardMaterial
   m.lightMap = lm
-  m.lightMapIntensity = Math.PI * scale
+  m.lightMapIntensity = Math.PI * scale * (base.userData.lightMapGain ?? 1)
   // 壁クロスは昼の見た目合わせで拡散色を下げ発光で補っている (WALL_DAY)。焼き込み時は本来の色に戻す
   if (m.emissive && m.emissive.getHex() !== 0) {
     m.color.copy(m.emissive)
