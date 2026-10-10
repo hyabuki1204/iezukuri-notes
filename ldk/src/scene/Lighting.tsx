@@ -31,6 +31,8 @@ function SkyMap({ url, ...props }: { url: string } & Omit<ComponentProps<typeof 
 export const SKY_ROTATION = Math.PI * 1.009
 
 const NEUTRAL = "#ffd9b0"
+/** 軒天ダウンライトは軒の出の中央 (ldk_scene.py の setup_lights と揃える) */
+const EAVE_LIGHT_Y = -DATA.P.EXT_WALL - DATA.P.EAVE / 2
 
 function Spot({ x, y, z, intensity, angle, penumbra = 0.6, color, tx, ty, tz }: {
   x: number; y: number; z: number; intensity: number; angle: number; penumbra?: number; color: string
@@ -185,7 +187,7 @@ export function Lighting({ time, lights, ceiling, q, baked, lightScale }: {
       )}
       {lights && <Downlights ceiling={ceiling} scale={lightScale} spill={1} />}
       {[1, 3, 5, 7].map((x) => (
-        <Spot key={x} x={x} y={-0.75} z={ceiling - 0.02} intensity={8} angle={Math.PI / 4} color={NEUTRAL} />
+        <Spot key={x} x={x} y={EAVE_LIGHT_Y} z={ceiling - 0.02} intensity={8} angle={Math.PI / 4} color={NEUTRAL} />
       ))}
       <Spot x={1} y={-5.4} z={0.05} tx={1} ty={-6} tz={3.5} intensity={60} angle={Math.PI / 9} color={NEUTRAL} />
       <Spot x={7.6} y={-6.2} z={0.05} tx={7.6} ty={-6.8} tz={3} intensity={45} angle={Math.PI / 9} color={NEUTRAL} />

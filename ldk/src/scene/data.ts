@@ -54,6 +54,8 @@ interface Raw {
     BACK: Rect4
     TABLE: [number, number, number]
     EAVE: number
+    EXT_WALL: number
+    DECK: number
     KITCHEN_FLOOR: Rect4
     COUNTER: [number, number, number, number, number]
     TV: [number, number]
