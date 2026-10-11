@@ -15,6 +15,7 @@ import {
   Vector2,
   Vector3,
 } from "three"
+import type { BoardColor, CounterTop, KitchenColor } from "./data"
 import { patchMaterial } from "./patch"
 
 export interface TextureSet {
@@ -450,6 +451,8 @@ export interface MaterialLib {
   uv: Record<string, UVMode>
   kitchenBody: MeshPhysicalMaterial
   kitchenTop: MeshPhysicalMaterial
+  /** カップボード本体 (ペニンシュラ・レンジフードとは別に色を選べる) */
+  boardBody: MeshPhysicalMaterial
   led: MeshStandardMaterial
   /** 壁クロス。昼は emissive で面の向きによる明暗差を薄め、どの壁も白に近いライトグレーに揃える */
   wall: MeshStandardMaterial
@@ -486,6 +489,7 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
   }
 
   const kitchenBody = new MeshPhysicalMaterial({ color: lin(0.007, 0.007, 0.007), roughness: 0.6, specularIntensity: 0.3 })
+  const boardBody = new MeshPhysicalMaterial({ color: lin(0.007, 0.007, 0.007), roughness: 0.6, specularIntensity: 0.3 })
   const kitchenTop = new MeshPhysicalMaterial({ color: lin(0.011, 0.011, 0.0105), roughness: 0.35, specularIntensity: 0.3 })
   const cloth = opt.detail ? clothNormal(5) : undefined
   const clothExtra = cloth ? { normalMap: cloth, normalScale: new Vector2(0.35, 0.35) } : {}
@@ -657,6 +661,7 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
     },
     kitchenBody,
     kitchenTop,
+    boardBody,
     led,
     wall,
     ceilWood,
@@ -664,18 +669,242 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
   }
 }
 
-export function kitchenMaterialFor(name: string, lib: MaterialLib): Material | undefined {
-  if (name.startsWith("キッチン_")) return lib.kitchenBody
+export function kitchenMaterialFor(name: string, lib: MaterialLib, meshName = ""): Material | undefined {
+  if (name.startsWith("キッチン_")) return meshName.startsWith("カップボード") ? lib.boardBody : lib.kitchenBody
   if (name.startsWith("天板_セラミック")) return lib.kitchenTop
   return undefined
 }
 
-export const KITCHEN_PALETTE = {
+interface KitchenFinish {
+  body: Color
+  bodyRough: number
+  top: Color
+  spec: number
+  /** 石目柄のシート。color はテクスチャへの乗数 */
+  stone?: StoneKind
+}
+
+export const KITCHEN_PALETTE: Record<KitchenColor, KitchenFinish> = {
+  // Panasonic L クラス LX40 ソイルブラック柄 (オレフィンシート): 黒に近いチャコールの石目
+  soil: { body: lin(1, 1, 1), bodyRough: 0.74, top: lin(1, 1, 1), spec: 0.4, stone: "soil" },
   // 黒は窓の映り込みで灰色に浮きやすいので、鏡面反射 (F0) も弱めて艶消しの黒に見せる
   black: { body: lin(0.007, 0.007, 0.007), bodyRough: 0.6, top: lin(0.011, 0.011, 0.0105), spec: 0.3 },
   gray: { body: lin(0.15, 0.15, 0.145), bodyRough: 0.6, top: lin(0.19, 0.19, 0.185), spec: 0.6 },
   white: { body: lin(0.8, 0.8, 0.78), bodyRough: 0.55, top: lin(0.8, 0.8, 0.78), spec: 1 },
-} as const
+}
+
+/** L クラスのワークトップ「スゴピカ素材 グラリオ」(人造大理石)。match は本体と同じ仕上げ */
+export const COUNTER_PALETTE: Record<Exclude<CounterTop, "match">, { stone: StoneKind; rough: number; spec: number }> = {
+  genshou: { stone: "genshou", rough: 0.46, spec: 0.55 },
+  mikage: { stone: "mikage", rough: 0.42, spec: 0.55 },
+}
+
+export const BOARD_PALETTE: Record<Exclude<BoardColor, "match">, { stone: StoneKind; rough: number; spec: number }> = {
+  stonegray: { stone: "stonegray", rough: 0.72, spec: 0.45 },
+}
+
+export type StoneKind = "soil" | "stonegray" | "genshou" | "mikage"
+
+interface Speckle {
+  count: number
+  /** 半径 (mm) */
+  r: [number, number]
+  colors: [number, number, number][]
+  alpha: [number, number]
+}
+
+interface StoneSpec {
+  /** テクスチャ 1 枚の大きさ (m) */
+  size: number
+  base: [number, number, number]
+  /** 大きな濃淡ムラ / 細かな粒状ノイズ (sRGB 0-255 の振れ幅) */
+  mottle: number
+  grain: number
+  /** 割肌のような起伏の強さ (法線) */
+  relief: number
+  speckles: Speckle[]
+  seed: number
+}
+
+// 室内の電球色に照らされると暗い無彩色は茶色に寄るので、柄の地色はわずかに青へ振っておく
+const STONES: Record<StoneKind, StoneSpec> = {
+  soil: {
+    size: 0.9,
+    base: [42, 44, 48],
+    mottle: 6,
+    grain: 7,
+    relief: 0.8,
+    speckles: [{ count: 6000, r: [0.15, 0.35], colors: [[74, 76, 80], [28, 29, 32]], alpha: [0.25, 0.5] }],
+    seed: 71,
+  },
+  // カップボードのグレー石目: 中間グレーの地に、明るい砂粒状の斑と細かな濃淡
+  stonegray: {
+    size: 0.9,
+    base: [130, 133, 139],
+    mottle: 9,
+    grain: 9,
+    relief: 0.35,
+    speckles: [
+      { count: 26000, r: [0.15, 0.6], colors: [[164, 167, 172], [154, 157, 162]], alpha: [0.3, 0.7] },
+      { count: 9000, r: [0.15, 0.4], colors: [[104, 106, 111]], alpha: [0.25, 0.55] },
+    ],
+    seed: 59,
+  },
+  // 玄昌石 (スレート) 調: 黒地に 0.2〜0.6mm ほどの白い粒が細かく散る
+  genshou: {
+    size: 0.5,
+    base: [22, 23, 26],
+    mottle: 4,
+    grain: 4,
+    relief: 1.3,
+    speckles: [
+      { count: 16000, r: [0.08, 0.3], colors: [[214, 215, 216], [168, 169, 171], [236, 237, 238]], alpha: [0.5, 1] },
+      { count: 6000, r: [0.08, 0.2], colors: [[90, 91, 94]], alpha: [0.4, 0.8] },
+    ],
+    seed: 83,
+  },
+  // 御影石 (黒御影) 調: 白い粒が大小混じり、ベージュの欠片がまばらに入る
+  mikage: {
+    size: 0.5,
+    base: [20, 21, 24],
+    mottle: 4,
+    grain: 4,
+    relief: 1.1,
+    speckles: [
+      { count: 20000, r: [0.1, 0.5], colors: [[222, 223, 224], [186, 187, 189], [240, 240, 241]], alpha: [0.6, 1] },
+      { count: 1400, r: [0.6, 1.5], colors: [[172, 150, 136], [154, 134, 122], [188, 170, 158]], alpha: [0.7, 0.95] },
+      { count: 900, r: [0.5, 1.1], colors: [[228, 228, 228]], alpha: [0.8, 1] },
+    ],
+    seed: 97,
+  },
+}
+
+/** 周期境界でつながる値ノイズの fBm (0〜1 付近) */
+function tileFbm(S: number, cells: number, octaves: number, rnd: () => number) {
+  const out = new Float32Array(S * S)
+  let amp = 0.5
+  for (let o = 0; o < octaves; o++, cells *= 2, amp *= 0.5) {
+    const g = new Float32Array(cells * cells).map(() => rnd())
+    for (let y = 0; y < S; y++) {
+      const fy = (y / S) * cells
+      const y0 = Math.floor(fy)
+      const ty = fy - y0
+      const sy = ty * ty * (3 - 2 * ty)
+      const r0 = y0 * cells
+      const r1 = ((y0 + 1) % cells) * cells
+      for (let x = 0; x < S; x++) {
+        const fx = (x / S) * cells
+        const x0 = Math.floor(fx)
+        const tx = fx - x0
+        const sx = tx * tx * (3 - 2 * tx)
+        const x1 = (x0 + 1) % cells
+        const a = g[r0 + x0] + (g[r0 + x1] - g[r0 + x0]) * sx
+        const b = g[r1 + x0] + (g[r1 + x1] - g[r1 + x0]) * sx
+        out[y * S + x] += (a + (b - a) * sy) * amp
+      }
+    }
+  }
+  return out
+}
+
+function stoneMapsOf(spec: StoneSpec) {
+  const S = 1024
+  const pxPerMm = S / (spec.size * 1000)
+  const rnd = seeded(spec.seed)
+  const relief = tileFbm(S, 6, 6, rnd)
+  const blotch = tileFbm(S, 3, 3, rnd)
+  const r = new Float32Array(S * S)
+  const g = new Float32Array(S * S)
+  const b = new Float32Array(S * S)
+  for (let i = 0; i < S * S; i++) {
+    const k = (blotch[i] - 0.5) * 2 * spec.mottle + (relief[i] - 0.5) * spec.mottle * 0.6 + (rnd() - 0.5) * spec.grain
+    r[i] = spec.base[0] + k
+    g[i] = spec.base[1] + k
+    b[i] = spec.base[2] + k
+  }
+  for (const sp of spec.speckles) {
+    for (let n = 0; n < sp.count; n++) {
+      const cx = rnd() * S
+      const cy = rnd() * S
+      const rad = (sp.r[0] + rnd() * (sp.r[1] - sp.r[0])) * pxPerMm
+      const col = sp.colors[Math.floor(rnd() * sp.colors.length)]
+      const alpha = sp.alpha[0] + rnd() * (sp.alpha[1] - sp.alpha[0])
+      // 粒の輪郭を少し歪ませて欠片らしくする
+      const h2 = rnd() * 0.35
+      const h3 = rnd() * 0.25
+      const p2 = rnd() * 6.28
+      const p3 = rnd() * 6.28
+      const R = Math.ceil(rad * 1.6 + 1)
+      for (let dy = -R; dy <= R; dy++) {
+        for (let dx = -R; dx <= R; dx++) {
+          const px = Math.floor(cx) + dx
+          const py = Math.floor(cy) + dy
+          const ox = px + 0.5 - cx
+          const oy = py + 0.5 - cy
+          const th = Math.atan2(oy, ox)
+          const re = rad * (1 + h2 * Math.sin(2 * th + p2) + h3 * Math.sin(3 * th + p3))
+          const cover = Math.min(1, Math.max(0, re + 0.5 - Math.hypot(ox, oy)))
+          if (cover <= 0) continue
+          const i = ((py + S) % S) * S + ((px + S) % S)
+          const a = cover * alpha
+          r[i] += (col[0] - r[i]) * a
+          g[i] += (col[1] - g[i]) * a
+          b[i] += (col[2] - b[i]) * a
+        }
+      }
+    }
+  }
+  const make = (fill: (d: Uint8ClampedArray, i: number) => void, srgb: boolean) => {
+    const cv = document.createElement("canvas")
+    cv.width = cv.height = S
+    const ctx = cv.getContext("2d")!
+    const id = ctx.createImageData(S, S)
+    for (let i = 0; i < S * S; i++) {
+      fill(id.data, i)
+      id.data[i * 4 + 3] = 255
+    }
+    ctx.putImageData(id, 0, 0)
+    return canvasTexture(cv, spec.size, srgb)
+  }
+  const map = make((d, i) => {
+    d[i * 4] = r[i]
+    d[i * 4 + 1] = g[i]
+    d[i * 4 + 2] = b[i]
+  }, true)
+  const k = spec.relief
+  const normalMap = make((d, i) => {
+    const x = i % S
+    const y = (i - x) / S
+    const nx = -(relief[y * S + ((x + 1) % S)] - relief[y * S + ((x + S - 1) % S)]) * k * 8
+    const ny = (relief[((y + 1) % S) * S + x] - relief[((y + S - 1) % S) * S + x]) * k * 8
+    const l = Math.hypot(nx, ny, 1)
+    d[i * 4] = (nx / l * 0.5 + 0.5) * 255
+    d[i * 4 + 1] = (ny / l * 0.5 + 0.5) * 255
+    d[i * 4 + 2] = (0.5 / l + 0.5) * 255
+  }, false)
+  return { map, normalMap }
+}
+
+/** 画質を切り替えても作り直さない。iOS のキャンバス上限に配慮し、選ばれた柄だけを初回に生成する */
+const stoneCache = new Map<StoneKind, { map: Texture; normalMap: Texture }>()
+
+export function stoneMaps(kind: StoneKind) {
+  let m = stoneCache.get(kind)
+  if (!m) {
+    m = stoneMapsOf(STONES[kind])
+    stoneCache.set(kind, m)
+  }
+  return m
+}
+
+/** 柄の有無でシェーダーが変わるので、付け外しのときだけ再コンパイルさせる */
+export function setStone(mat: MeshPhysicalMaterial, kind: StoneKind | undefined) {
+  const m = kind ? stoneMaps(kind) : undefined
+  const had = !!mat.map
+  mat.map = m?.map ?? null
+  mat.normalMap = m?.normalMap ?? null
+  if (had !== !!m) mat.needsUpdate = true
+}
 
 /**
  * Blender から UV なしで出力されたメッシュに、ワールド座標の平面投影 UV を付与する。

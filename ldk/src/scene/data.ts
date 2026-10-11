@@ -7,7 +7,11 @@ export const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`
 
 export type CeilingHeight = 2.5 | 2.7
 export type CeilingColor = "wood" | "white"
-export type KitchenColor = "black" | "gray" | "white"
+export type KitchenColor = "soil" | "black" | "gray" | "white"
+/** ワークトップ。match = 本体と同じ仕上げ、genshou = グラリオ玄昌ブラック、mikage = グラリオ御影ブラック */
+export type CounterTop = "match" | "genshou" | "mikage"
+/** カップボード本体。stonegray = グレーの石目柄、match = ペニンシュラと同じ */
+export type BoardColor = "stonegray" | "match"
 export type CurtainState = "open" | "closed"
 export type DoorState = "closed" | "open"
 export type TimeOfDay = "day" | "night"
@@ -19,6 +23,8 @@ export interface Settings {
   ceiling: CeilingHeight
   ceilColor: CeilingColor
   kitchen: KitchenColor
+  counter: CounterTop
+  board: BoardColor
   curtain: CurtainState
   doors: DoorState
   time: TimeOfDay

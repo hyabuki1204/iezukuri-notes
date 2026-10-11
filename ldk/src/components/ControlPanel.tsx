@@ -14,11 +14,14 @@ function Segmented<T extends string | number>({
   options,
   onChange,
   disabled,
+  fit,
 }: {
   value: T
   options: Opt<T>[]
   onChange: (v: T) => void
   disabled?: boolean
+  /** ラベルの長さに合わせて幅を配分する (長いラベルが切れないように) */
+  fit?: boolean
 }) {
   return (
     <ToggleGroup
@@ -37,7 +40,7 @@ function Segmented<T extends string | number>({
         <ToggleGroupItem
           key={String(o.value)}
           value={String(o.value)}
-          className="flex-1 aria-pressed:bg-white aria-pressed:text-neutral-950 aria-pressed:hover:bg-white"
+          className={cn(fit ? "flex-auto px-1.5" : "flex-1", "aria-pressed:bg-white aria-pressed:text-neutral-950 aria-pressed:hover:bg-white")}
         >
           {o.label}
         </ToggleGroupItem>
@@ -139,15 +142,40 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
           ]}
         />
       </Row>
-      <Row label="キッチン" hint={fixedNote}>
+      <Row label="キッチン" hint={fixedNote ?? "L クラス ペニンシュラ"}>
         <Segmented
           value={s.kitchen}
           disabled={pano}
+          fit
           onChange={(kitchen) => set({ kitchen })}
           options={[
-            { value: "black", label: "マットブラック" },
-            { value: "gray", label: "マットグレー" },
-            { value: "white", label: "マットホワイト" },
+            { value: "soil", label: "ソイルブラック" },
+            { value: "black", label: "ブラック" },
+            { value: "gray", label: "グレー" },
+            { value: "white", label: "ホワイト" },
+          ]}
+        />
+      </Row>
+      <Row label="カップボード">
+        <Segmented
+          value={s.board}
+          disabled={pano}
+          onChange={(board) => set({ board })}
+          options={[
+            { value: "stonegray", label: "グレー石目" },
+            { value: "match", label: "キッチンと同色" },
+          ]}
+        />
+      </Row>
+      <Row label="天板" hint={pano ? undefined : "グラリオ (人造大理石)"}>
+        <Segmented
+          value={s.counter}
+          disabled={pano}
+          onChange={(counter) => set({ counter })}
+          options={[
+            { value: "genshou", label: "玄昌ブラック" },
+            { value: "mikage", label: "御影ブラック" },
+            { value: "match", label: "本体と同色" },
           ]}
         />
       </Row>

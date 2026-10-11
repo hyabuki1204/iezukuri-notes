@@ -89,6 +89,8 @@ export function Viewer({ s }: { s: Settings }) {
               visible={s.ceiling === h}
               ceilColor={s.ceilColor}
               kitchen={s.kitchen}
+              counter={s.counter}
+              board={s.board}
               curtain={s.curtain}
               doors={s.doors}
               time={s.time}

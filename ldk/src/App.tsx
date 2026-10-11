@@ -16,7 +16,9 @@ const DEFAULTS: Settings = {
   mode: "walk",
   ceiling: 2.5,
   ceilColor: "wood",
-  kitchen: "black",
+  kitchen: "soil",
+  counter: "genshou",
+  board: "stonegray",
   curtain: "open",
   doors: "closed",
   time: "day",
@@ -42,7 +44,9 @@ function initialSettings(): Settings {
   pick("mode", ["walk", "pano"])
   pick("ceiling", [2.5, 2.7])
   pick("ceilColor", ["wood", "white"])
-  pick("kitchen", ["black", "gray", "white"])
+  pick("kitchen", ["soil", "black", "gray", "white"])
+  pick("counter", ["match", "genshou", "mikage"])
+  pick("board", ["stonegray", "match"])
   pick("curtain", ["open", "closed"])
   pick("doors", ["open", "closed"])
   pick("time", ["day", "night"])

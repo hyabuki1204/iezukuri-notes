@@ -3,6 +3,7 @@ import { useLoader, useThree } from "@react-three/fiber"
 import { useEffect, useMemo } from "react"
 import {
   BufferAttribute,
+  Color,
   EquirectangularReflectionMapping,
   ImageLoader,
   type Material,
@@ -15,7 +16,9 @@ import {
 } from "three"
 import {
   asset,
+  type BoardColor,
   type CeilingColor,
+  type CounterTop,
   type CurtainState,
   DATA,
   type DoorState,
@@ -27,7 +30,7 @@ import {
 } from "./data"
 import { SKY_ROTATION } from "./Lighting"
 import { patchMaterial } from "./patch"
-import { applyWorldUV, createMaterials, KITCHEN_PALETTE, kitchenMaterialFor, type MaterialLib } from "./materials"
+import { applyWorldUV, BOARD_PALETTE, COUNTER_PALETTE, createMaterials, KITCHEN_PALETTE, kitchenMaterialFor, type MaterialLib, setStone } from "./materials"
 import { setCollision } from "./player"
 import type { QualityProfile } from "./quality"
 
@@ -84,6 +87,9 @@ const WALL_DAY = { base: 0.5, fill: 0.74 }
 /** 焼き込み時の壁: 白に近いクロスに見えるよう間接光を持ち上げ、薄い発光で窓から遠い壁のくすみを抑える */
 const WALL_BAKED = { gain: 1.75, fill: 0.03 }
 
+/** 石目柄の天板はテクスチャの色そのまま */
+const STONE_TINT = new Color(1, 1, 1)
+
 const CEILING_MESH = /^天井_仕上げ/
 const LIGHTMAPPED = new Set(DATA.lightmap?.mats ?? [])
 const FLOOR_MATS = new Set(["挽板フローリング_オーク", "キッチン床_モルタル調"])
@@ -106,7 +112,7 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
     const mesh = o as Mesh
     if (!mesh.isMesh) return
     const name = (mesh.material as { name?: string }).name ?? ""
-    const mat = kitchenMaterialFor(name, lib) ?? lib.byName[name]
+    const mat = kitchenMaterialFor(name, lib, mesh.name) ?? lib.byName[name]
     if (mat) mesh.material = mat
     const g = mesh.geometry
     // 2.5m / 2.7m のクローンはジオメトリを共有するので、ライトマップ UV の退避は 1 回だけ
@@ -115,7 +121,7 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
       const uv = g.getAttribute("uv") as BufferAttribute
       g.setAttribute("uv1", new BufferAttribute(uv.array.slice(), 2))
     }
-    const uvMode = lib.uv[name]
+    const uvMode = lib.uv[name] ?? (kitchenMaterialFor(name, lib) ? "plan" : undefined)
     if (uvMode) applyWorldUV(mesh, uvMode)
     const transparent = name === "Low-E複層ガラス" || name === "レースカーテン"
     mesh.castShadow = !transparent
@@ -190,13 +196,15 @@ interface Props {
   ceilColor: CeilingColor
   visible: boolean
   kitchen: KitchenColor
+  counter: CounterTop
+  board: BoardColor
   curtain: CurtainState
   doors: DoorState
   time: TimeOfDay
   q: QualityProfile
 }
 
-export function LdkModel({ ceiling, ceilColor, visible, kitchen, curtain, doors, time, q }: Props) {
+export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board, curtain, doors, time, q }: Props) {
   const { scene } = useGLTF(MODEL_URL[ceiling])
   const lib = useMaterialLib(q)
   const invalidate = useThree((s) => s.invalidate)
@@ -246,17 +254,26 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, curtain, doors,
 
   useEffect(() => {
     const p = KITCHEN_PALETTE[kitchen]
+    setStone(lib.kitchenBody, p.stone)
     lib.kitchenBody.color.copy(p.body)
     lib.kitchenBody.roughness = p.bodyRough
-    lib.kitchenTop.color.copy(p.top)
     lib.kitchenBody.specularIntensity = p.spec
-    lib.kitchenTop.specularIntensity = p.spec
+    const b = board === "match" ? undefined : BOARD_PALETTE[board]
+    setStone(lib.boardBody, b ? b.stone : p.stone)
+    lib.boardBody.color.copy(b ? STONE_TINT : p.body)
+    lib.boardBody.roughness = b ? b.rough : p.bodyRough
+    lib.boardBody.specularIntensity = b ? b.spec : p.spec
+    const top = counter === "match" ? undefined : COUNTER_PALETTE[counter]
+    setStone(lib.kitchenTop, top ? top.stone : p.stone)
+    lib.kitchenTop.color.copy(top ? STONE_TINT : p.top)
+    lib.kitchenTop.roughness = top ? top.rough : 0.35
+    lib.kitchenTop.specularIntensity = top ? top.spec : p.spec
     lib.led.emissiveIntensity = time === "night" ? 6 : 0
     const day = time === "day"
     lib.wall.color.copy(lib.wall.emissive).multiplyScalar(day ? WALL_DAY.base : 1)
     lib.wall.emissiveIntensity = day ? WALL_DAY.fill : 0
     invalidate()
-  }, [lib, kitchen, time, invalidate])
+  }, [lib, kitchen, counter, board, time, invalidate])
 
   return <primitive object={root} visible={visible} />
 }
