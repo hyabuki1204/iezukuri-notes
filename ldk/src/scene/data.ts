@@ -10,8 +10,8 @@ export type CeilingColor = "wood" | "white"
 export type KitchenColor = "soil" | "black" | "gray" | "white"
 /** ワークトップ。match = 本体と同じ仕上げ、genshou = グラリオ玄昌ブラック、mikage = グラリオ御影ブラック */
 export type CounterTop = "match" | "genshou" | "mikage"
-/** カップボード本体。stonegray = グレーの石目柄、match = ペニンシュラと同じ */
-export type BoardColor = "stonegray" | "match"
+/** キッチンボード (ペニンシュラが接する北壁のキッチンパネル)。match = キッチン本体と同じ、none = 壁クロスのまま */
+export type BoardColor = "stonegray" | "match" | "none"
 export type CurtainState = "open" | "closed"
 export type DoorState = "closed" | "open"
 export type TimeOfDay = "day" | "night"

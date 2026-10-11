@@ -142,7 +142,7 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
           ]}
         />
       </Row>
-      <Row label="キッチン" hint={fixedNote ?? "L クラス ペニンシュラ"}>
+      <Row label="キッチン" hint={fixedNote ?? "L クラス (カップボードも同色)"}>
         <Segmented
           value={s.kitchen}
           disabled={pano}
@@ -156,7 +156,7 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
           ]}
         />
       </Row>
-      <Row label="カップボード">
+      <Row label="キッチンボード" hint={pano ? undefined : "ペニンシュラが接する北壁"}>
         <Segmented
           value={s.board}
           disabled={pano}
@@ -164,6 +164,7 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
           options={[
             { value: "stonegray", label: "グレー石目" },
             { value: "match", label: "キッチンと同色" },
+            { value: "none", label: "なし" },
           ]}
         />
       </Row>

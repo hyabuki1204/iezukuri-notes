@@ -451,7 +451,7 @@ export interface MaterialLib {
   uv: Record<string, UVMode>
   kitchenBody: MeshPhysicalMaterial
   kitchenTop: MeshPhysicalMaterial
-  /** カップボード本体 (ペニンシュラ・レンジフードとは別に色を選べる) */
+  /** キッチンボード (北壁のキッチンパネル) */
   boardBody: MeshPhysicalMaterial
   led: MeshStandardMaterial
   /** 壁クロス。昼は emissive で面の向きによる明暗差を薄め、どの壁も白に近いライトグレーに揃える */
@@ -669,8 +669,8 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
   }
 }
 
-export function kitchenMaterialFor(name: string, lib: MaterialLib, meshName = ""): Material | undefined {
-  if (name.startsWith("キッチン_")) return meshName.startsWith("カップボード") ? lib.boardBody : lib.kitchenBody
+export function kitchenMaterialFor(name: string, lib: MaterialLib): Material | undefined {
+  if (name.startsWith("キッチン_")) return lib.kitchenBody
   if (name.startsWith("天板_セラミック")) return lib.kitchenTop
   return undefined
 }
@@ -699,7 +699,7 @@ export const COUNTER_PALETTE: Record<Exclude<CounterTop, "match">, { stone: Ston
   mikage: { stone: "mikage", rough: 0.42, spec: 0.55 },
 }
 
-export const BOARD_PALETTE: Record<Exclude<BoardColor, "match">, { stone: StoneKind; rough: number; spec: number }> = {
+export const BOARD_PALETTE: Record<Exclude<BoardColor, "match" | "none">, { stone: StoneKind; rough: number; spec: number }> = {
   stonegray: { stone: "stonegray", rough: 0.72, spec: 0.45 },
 }
 
@@ -737,16 +737,16 @@ const STONES: Record<StoneKind, StoneSpec> = {
     speckles: [{ count: 6000, r: [0.15, 0.35], colors: [[74, 76, 80], [28, 29, 32]], alpha: [0.25, 0.5] }],
     seed: 71,
   },
-  // カップボードのグレー石目: 中間グレーの地に、明るい砂粒状の斑と細かな濃淡
+  // キッチンボードのグレー石目: 中間グレーの地に、明るい砂粒状の斑と細かな濃淡
   stonegray: {
     size: 0.9,
-    base: [130, 133, 139],
-    mottle: 9,
-    grain: 9,
+    base: [96, 98, 103],
+    mottle: 11,
+    grain: 10,
     relief: 0.35,
     speckles: [
-      { count: 26000, r: [0.15, 0.6], colors: [[164, 167, 172], [154, 157, 162]], alpha: [0.3, 0.7] },
-      { count: 9000, r: [0.15, 0.4], colors: [[104, 106, 111]], alpha: [0.25, 0.55] },
+      { count: 26000, r: [0.15, 0.6], colors: [[128, 130, 135], [118, 120, 125]], alpha: [0.3, 0.7] },
+      { count: 9000, r: [0.15, 0.4], colors: [[74, 76, 80]], alpha: [0.25, 0.55] },
     ],
     seed: 59,
   },

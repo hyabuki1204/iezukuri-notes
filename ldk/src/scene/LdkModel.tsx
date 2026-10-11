@@ -2,12 +2,13 @@ import { useGLTF, useTexture } from "@react-three/drei"
 import { useLoader, useThree } from "@react-three/fiber"
 import { useEffect, useMemo } from "react"
 import {
+  BoxGeometry,
   BufferAttribute,
   Color,
   EquirectangularReflectionMapping,
   ImageLoader,
   type Material,
-  type Mesh,
+  Mesh,
   type MeshStandardMaterial,
   type Object3D,
   SRGBColorSpace,
@@ -26,6 +27,7 @@ import {
   type KitchenColor,
   lightmapUrl,
   MODEL_URL,
+  toThree,
   type TimeOfDay,
 } from "./data"
 import { SKY_ROTATION } from "./Lighting"
@@ -112,7 +114,7 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
     const mesh = o as Mesh
     if (!mesh.isMesh) return
     const name = (mesh.material as { name?: string }).name ?? ""
-    const mat = kitchenMaterialFor(name, lib, mesh.name) ?? lib.byName[name]
+    const mat = kitchenMaterialFor(name, lib) ?? lib.byName[name]
     if (mat) mesh.material = mat
     const g = mesh.geometry
     // 2.5m / 2.7m のクローンはジオメトリを共有するので、ライトマップ UV の退避は 1 回だけ
@@ -139,6 +141,19 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
     })
   })
   return slots
+}
+
+/** ペニンシュラが接する北壁のキッチンパネル (天板上端〜天井、ペニンシュラ幅)。壁面と重ならないよう 4mm 手前に貼る */
+function kitchenBoard(lib: MaterialLib, ceiling: number) {
+  const [x0, x1, , y1] = DATA.P.PENINSULA
+  const z0 = 0.87
+  const t = 0.004
+  const mesh = new Mesh(new BoxGeometry(x1 - x0, ceiling - z0, t), lib.boardBody)
+  mesh.name = "キッチンボード"
+  mesh.position.copy(toThree((x0 + x1) / 2, y1 - t / 2, (z0 + ceiling) / 2))
+  mesh.castShadow = mesh.receiveShadow = true
+  applyWorldUV(mesh, "plan")
+  return mesh
 }
 
 /** 焼き込み (昼・MEDIUM 以上) 用のマテリアル。モデルごとにライトマップが違うので複製する */
@@ -210,10 +225,18 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
   const invalidate = useThree((s) => s.invalidate)
   const canBake = q.baked && hasLightmap(ceiling)
   const [lm, sky] = useTexture(canBake ? [lightmapUrl(ceiling), asset("textures/suburban_garden_sky.jpg")] : []) as Texture[]
-  const { root, slots } = useMemo(() => {
+  const { root, slots, board: boardMesh } = useMemo(() => {
     const r = scene.clone(true)
-    return { root: r, slots: prepare(r, lib) }
-  }, [scene, lib])
+    const slots = prepare(r, lib)
+    const b = kitchenBoard(lib, ceiling)
+    r.add(b)
+    return { root: r, slots, board: b }
+  }, [scene, lib, ceiling])
+
+  useEffect(() => {
+    boardMesh.visible = board !== "none"
+    invalidate()
+  }, [boardMesh, board, invalidate])
   const variants = useMemo(() => {
     if (!canBake || !lm || !sky) return undefined
     lm.flipY = false
@@ -258,7 +281,7 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
     lib.kitchenBody.color.copy(p.body)
     lib.kitchenBody.roughness = p.bodyRough
     lib.kitchenBody.specularIntensity = p.spec
-    const b = board === "match" ? undefined : BOARD_PALETTE[board]
+    const b = board === "match" || board === "none" ? undefined : BOARD_PALETTE[board]
     setStone(lib.boardBody, b ? b.stone : p.stone)
     lib.boardBody.color.copy(b ? STONE_TINT : p.body)
     lib.boardBody.roughness = b ? b.rough : p.bodyRough

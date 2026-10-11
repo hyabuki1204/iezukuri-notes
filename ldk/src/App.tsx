@@ -46,7 +46,7 @@ function initialSettings(): Settings {
   pick("ceilColor", ["wood", "white"])
   pick("kitchen", ["soil", "black", "gray", "white"])
   pick("counter", ["match", "genshou", "mikage"])
-  pick("board", ["stonegray", "match"])
+  pick("board", ["stonegray", "match", "none"])
   pick("curtain", ["open", "closed"])
   pick("doors", ["open", "closed"])
   pick("time", ["day", "night"])
