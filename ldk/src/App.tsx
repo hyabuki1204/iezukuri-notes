@@ -29,7 +29,8 @@ const DEFAULTS: Settings = {
   pano: "p2",
   quality: DEFAULT_QUALITY,
   tone: "agx",
-  pt: matchMedia("(pointer: coarse)").matches ? "off" : "on",
+  // 静止時パストレースは高性能な GPU でないと重いので、URL (?pt=on) で指定したときだけ
+  pt: "off",
 }
 
 /** URL で条件を指定できる (例: ?ceiling=2.7&ceilColor=white&time=night&lights=off&view=v3&panel=0&q=ultra&tone=aces) */

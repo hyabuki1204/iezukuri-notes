@@ -1,8 +1,8 @@
 import { SoftShadows } from "@react-three/drei"
-import { Canvas, useThree } from "@react-three/fiber"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from "@react-three/postprocessing"
 import { ToneMappingMode } from "postprocessing"
-import { lazy, Suspense, useEffect } from "react"
+import { lazy, Suspense, useEffect, useRef } from "react"
 import { NoToneMapping, PCFShadowMap, VSMShadowMap } from "three"
 import { DATA, EYE_HEIGHT, hasLightmap, MOBILE, panoUrl, type Settings } from "./data"
 import { FloorReflector } from "./FloorReflector"
@@ -10,6 +10,7 @@ import { LdkModel } from "./LdkModel"
 import { Lighting } from "./Lighting"
 import { usePtStatus } from "./ptStatus"
 import { PanoView } from "./PanoView"
+import { input, tour } from "./player"
 import { Player } from "./Player"
 import { QUALITY, type QualityProfile, type ToneMap } from "./quality"
 
@@ -60,6 +61,40 @@ function Exposure({ value }: { value: number }) {
   return null
 }
 
+/**
+ * 歩行・見回し中のフレームレートを見て描画解像度を上下させる (GPU の弱い PC でも操作が重くならないように)。
+ * 待機中は描画しない (frameloop="demand") ので、歩行中 (キー・スティック・ツアー) のフレームだけを数える
+ */
+function AdaptiveDpr({ max }: { max: number }) {
+  const setDpr = useThree((s) => s.setDpr)
+  const st = useRef({ dpr: max, frames: 0, time: 0, moving: false })
+  useEffect(() => {
+    st.current.dpr = max
+    setDpr(max)
+  }, [max, setDpr])
+  useFrame((_, delta) => {
+    const s = st.current
+    const moving = input.keys.size > 0 || input.joy.x !== 0 || input.joy.y !== 0 || tour.playing
+    // 動き出しのフレームは止まっていた時間を含むので数えない
+    const counting = moving && s.moving
+    s.moving = moving
+    if (!counting) return
+    s.frames++
+    s.time += delta
+    if (s.frames < 5 || (s.frames < 45 && s.time < 1.5)) return
+    const fps = s.frames / s.time
+    s.frames = 0
+    s.time = 0
+    const step = fps < 20 ? 0.5 : 0.25
+    const next = fps < 40 ? Math.max(1, s.dpr - step) : fps > 57 ? Math.min(max, s.dpr + 0.25) : s.dpr
+    if (next !== s.dpr) {
+      s.dpr = next
+      setDpr(next)
+    }
+  })
+  return null
+}
+
 export function Viewer({ s }: { s: Settings }) {
   const pano = s.mode === "pano" ? DATA.panos[s.pano] : undefined
   const eye = EYE_HEIGHT[s.eye]
@@ -81,6 +116,7 @@ export function Viewer({ s }: { s: Settings }) {
     >
       {q.shadow === "pcss" && <SoftShadows size={18} samples={12} focus={0.6} />}
       <Exposure value={pano ? 0.9 : exposure} />
+      <AdaptiveDpr max={Math.min(MOBILE ? Math.min(q.dpr, MOBILE_DPR) : q.dpr, window.devicePixelRatio || 1)} />
       <Player eyeHeight={eye} fov={s.fov} anchor={pano?.loc} />
       {pano ? (
         <Suspense fallback={null}>

@@ -118,17 +118,6 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
               ]}
             />
           </Row>
-          <Row label="静止時フォトリアル" hint={s.quality === "low" ? "MEDIUM 以上で使えます" : "止まると光を計算し直して写真品質に"}>
-            <Segmented
-              value={s.pt}
-              disabled={s.quality === "low"}
-              onChange={(pt) => set({ pt })}
-              options={[
-                { value: "on", label: "ON" },
-                { value: "off", label: "OFF" },
-              ]}
-            />
-          </Row>
           <div className="h-px bg-white/10" />
         </>
       )}
