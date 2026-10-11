@@ -2,15 +2,22 @@ import { SoftShadows } from "@react-three/drei"
 import { Canvas, useThree } from "@react-three/fiber"
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from "@react-three/postprocessing"
 import { ToneMappingMode } from "postprocessing"
-import { Suspense, useEffect } from "react"
+import { lazy, Suspense, useEffect } from "react"
 import { NoToneMapping, PCFShadowMap, VSMShadowMap } from "three"
 import { DATA, EYE_HEIGHT, hasLightmap, panoUrl, type Settings } from "./data"
 import { FloorReflector } from "./FloorReflector"
 import { LdkModel } from "./LdkModel"
 import { Lighting } from "./Lighting"
+import { usePtStatus } from "./ptStatus"
 import { PanoView } from "./PanoView"
 import { Player } from "./Player"
 import { QUALITY, type QualityProfile, type ToneMap } from "./quality"
+
+/** パストレーサーは PC で使うときだけ読み込む */
+const PathTracer = lazy(() => import("./PathTracer"))
+
+/** 静止時パストレースの最大サンプル数 (これに達したら計算を止める) */
+const PT_SAMPLES = 1000
 
 /** トーンマッピング別の露出。AgX は中間調が沈むぶん持ち上げ、ACES は肩が早いので抑える */
 const EXPOSURE: Record<ToneMap, { day: number; night: number; baked: number }> = {
@@ -20,8 +27,10 @@ const EXPOSURE: Record<ToneMap, { day: number; night: number; baked: number }> =
 
 function Effects({ q, day, tone }: { q: QualityProfile; day: boolean; tone: ToneMap }) {
   const mode = tone === "aces" ? ToneMappingMode.ACES_FILMIC : ToneMappingMode.AGX
+  // パストレースの結果が画面を覆っている間は、下に隠れるラスタライズ表示を描かない
+  const { covering } = usePtStatus()
   return (
-    <EffectComposer multisampling={0}>
+    <EffectComposer multisampling={0} enabled={!covering}>
       {q.ao !== "off" && (
         <N8AO
           aoRadius={0.55}
@@ -55,6 +64,8 @@ export function Viewer({ s }: { s: Settings }) {
   const day = s.time === "day"
   const baked = q.baked && day && hasLightmap(s.ceiling)
   const exposure = EXPOSURE[s.tone][baked ? "baked" : s.time]
+  const ptOn = s.pt === "on" && s.quality !== "low" && !pano
+  const sceneKey = [s.ceiling, s.ceilColor, s.kitchen, s.counter, s.board, s.curtain, s.doors, s.time, s.lights, s.quality].join("|")
   return (
     <Canvas
       key={s.quality}
@@ -99,6 +110,11 @@ export function Viewer({ s }: { s: Settings }) {
           ))}
           {q.reflector && <FloorReflector />}
           <Effects q={q} day={day} tone={s.tone} />
+          {ptOn && (
+            <Suspense fallback={null}>
+              <PathTracer sceneKey={sceneKey} tone={s.tone} day={day} maxSamples={PT_SAMPLES} />
+            </Suspense>
+          )}
         </Suspense>
       )}
     </Canvas>

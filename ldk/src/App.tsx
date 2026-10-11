@@ -5,6 +5,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Joystick } from "@/components/Joystick"
 import { LoadingOverlay } from "@/components/LoadingOverlay"
 import { Minimap } from "@/components/Minimap"
+import { PtBadge } from "@/components/PtBadge"
 import { Button } from "@/components/ui/button"
 import { useFullscreen } from "@/lib/fullscreen"
 import { DATA, panoUrl, type Settings } from "@/scene/data"
@@ -28,6 +29,7 @@ const DEFAULTS: Settings = {
   pano: "p2",
   quality: DEFAULT_QUALITY,
   tone: "agx",
+  pt: matchMedia("(pointer: coarse)").matches ? "off" : "on",
 }
 
 /** URL で条件を指定できる (例: ?ceiling=2.7&ceilColor=white&time=night&lights=off&view=v3&panel=0&q=ultra&tone=aces) */
@@ -58,6 +60,7 @@ function initialSettings(): Settings {
   const q = QUERY.get("q")
   if (q === "low" || q === "medium" || q === "ultra") s.quality = q
   pick("tone", ["agx", "aces"])
+  pick("pt", ["on", "off"])
   const view = QUERY.get("view")
   if (view && DATA.cameras[view]) {
     jumpToPreset(view)
@@ -212,6 +215,7 @@ export default function App() {
         )}
       </ErrorBoundary>
       <LoadingOverlay />
+      {s.mode === "walk" && <PtBadge />}
 
       {/* ノッチ・ホームバーにボタンが隠れないよう、UI はセーフエリア内に置く */}
       <div

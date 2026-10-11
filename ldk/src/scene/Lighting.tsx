@@ -85,7 +85,7 @@ function Downlights({ ceiling, scale, spill }: { ceiling: number; scale: number;
           />
           <mesh position={toThree(x, y, ceiling - 0.0245)} rotation={[Math.PI / 2, 0, 0]}>
             <circleGeometry args={[0.026, 24]} />
-            <meshBasicMaterial color={[8 * scale, 6.6 * scale, 5 * scale]} toneMapped />
+            <meshStandardMaterial color="black" emissive={[8 * scale, 6.6 * scale, 5 * scale]} />
           </mesh>
         </group>
       ))}

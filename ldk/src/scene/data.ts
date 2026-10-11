@@ -34,6 +34,8 @@ export interface Settings {
   pano: string
   quality: Quality
   tone: ToneMap
+  /** 静止時のパストレース */
+  pt: "on" | "off"
 }
 
 export const EYE_HEIGHT = { stand: 1.5, sit: 1.15 } as const
