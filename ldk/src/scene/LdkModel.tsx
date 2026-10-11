@@ -37,20 +37,34 @@ import { setCollision } from "./player"
 import type { QualityProfile } from "./quality"
 
 const SHRUBS = ["shrub_02", "shrub_03"]
-const BASE_TEXTURES = [
-  "textures/laminate_floor_02_diff.jpg",
-  "textures/laminate_floor_02_nor.jpg",
-  "textures/laminate_floor_02_rough.jpg",
-  ...SHRUBS.flatMap((s) => [`textures/${s}_diff.webp`, `textures/${s}_nor.jpg`]),
-]
+/** 挽板の 2K 版は PC の ULTRA だけ (スマホは GPU メモリを節約する) */
+const HI_RES = !matchMedia("(pointer: coarse)").matches
+const floorTextures = (hi: boolean) =>
+  ["diff", "nor", "rough"].map((k) => `textures/laminate_floor_02_${k}${hi ? "_2k" : ""}.jpg`)
+const SHRUB_TEXTURES = SHRUBS.flatMap((s) => [`textures/${s}_diff.webp`, `textures/${s}_nor.jpg`])
+const BASE_COUNT = 3 + SHRUB_TEXTURES.length
 const DETAIL_TEXTURES = ["textures/rough_linen_nor.jpg", "textures/leafy_grass_nor.jpg"]
+/** Poly Haven のスキャン素材 (scripts/web_textures_scan.py)。MEDIUM 以上 */
+const SCAN_TEXTURES = [
+  "walnut_diff",
+  "walnut_nor",
+  "leather_diff",
+  "leather_nor",
+  "wool_herringbone_diff",
+  "wool_herringbone_nor",
+  "concrete_worn_diff",
+  "concrete_worn_nor",
+  "concrete_worn_rough",
+].map((n) => `textures/${n}.jpg`)
 
 /** 画質を切り替えると Canvas ごと作り直すため、読み込むテクスチャの組はマウント中は変わらない */
 function useMaterialLib(q: QualityProfile): MaterialLib {
-  const urls = (q.detailMaps ? [...BASE_TEXTURES, ...DETAIL_TEXTURES] : BASE_TEXTURES).map(asset)
+  const base = [...floorTextures(HI_RES && q.hiResTextures), ...SHRUB_TEXTURES]
+  const urls = (q.detailMaps ? [...base, ...DETAIL_TEXTURES, ...SCAN_TEXTURES] : base).map(asset)
   const textures = useTexture(urls)
   const [floorDiff, floorNor, floorRough] = textures
-  const [linenNor, grassNor] = textures.slice(BASE_TEXTURES.length)
+  const [linenNor, grassNor] = textures.slice(BASE_COUNT)
+  const scan = q.detailMaps ? textures.slice(BASE_COUNT + DETAIL_TEXTURES.length) : undefined
   const images = useLoader(
     ImageLoader,
     (q.detailMaps ? ["textures/ash_veneer_diff.jpg", "textures/rough_linen_diff.jpg"] : ["textures/ash_veneer_diff.jpg"]).map(asset),
@@ -68,13 +82,19 @@ function useMaterialLib(q: QualityProfile): MaterialLib {
           linen: images[1],
           linenNor,
           grassNor,
+          scan: scan && {
+            walnut: [scan[0], scan[1]],
+            leather: [scan[2], scan[3]],
+            wool: [scan[4], scan[5]],
+            concrete: [scan[6], scan[7], scan[8]],
+          },
         },
         { detail: q.detailMaps, glass: q.glass, reflective: q.reflector },
       )
       libCache = { ash: images[0], key, lib }
     }
     return libCache.lib
-  }, [textures, floorDiff, floorNor, floorRough, linenNor, grassNor, images, q.detailMaps, q.glass, q.reflector])
+  }, [textures, floorDiff, floorNor, floorRough, linenNor, grassNor, scan, images, q.detailMaps, q.glass, q.reflector])
 }
 
 /**
@@ -114,9 +134,8 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
     const mesh = o as Mesh
     if (!mesh.isMesh) return
     const name = (mesh.material as { name?: string }).name ?? ""
-    const mat = SINK_MESH[mesh.name]?.(lib) ?? kitchenMaterialFor(name, lib) ?? lib.byName[name]
+    const mat = kitchenMaterialFor(name, lib) ?? lib.byName[name]
     if (mat) mesh.material = mat
-    if (mesh.name === "シンク_影") applyBoxUV(mesh)
     const g = mesh.geometry
     // 2.5m / 2.7m のクローンはジオメトリを共有するので、ライトマップ UV の退避は 1 回だけ
     const lightmapped = LIGHTMAPPED.has(name) && (!!g.getAttribute("uv1") || !!g.getAttribute("uv"))
@@ -142,25 +161,6 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
     })
   })
   return slots
-}
-
-const SINK_MESH: Record<string, (lib: MaterialLib) => Material> = {
-  "シンク": (lib) => lib.sinkRim,
-  "シンク_影": (lib) => lib.sinkBowl,
-}
-
-/** 上面をメッシュの外形いっぱいに 0〜1 で貼る (U = 東西、V = 南北) */
-function applyBoxUV(mesh: Mesh) {
-  const g = mesh.geometry
-  const pos = g.getAttribute("position")
-  if (!g.boundingBox) g.computeBoundingBox()
-  const { min, max } = g.boundingBox!
-  const uv = new Float32Array(pos.count * 2)
-  for (let i = 0; i < pos.count; i++) {
-    uv[i * 2] = (pos.getX(i) - min.x) / (max.x - min.x)
-    uv[i * 2 + 1] = (pos.getZ(i) - min.z) / (max.z - min.z)
-  }
-  g.setAttribute("uv", new BufferAttribute(uv, 2))
 }
 
 /** ペニンシュラが接する北壁のキッチンパネル (天板上端〜天井、ペニンシュラ幅)。壁面と重ならないよう 4mm 手前に貼る */

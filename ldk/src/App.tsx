@@ -66,6 +66,14 @@ function initialSettings(): Settings {
     jumpToPreset(view)
     s.eye = DATA.cameras[view].loc[2] < 1.3 ? "sit" : "stand"
   }
+  // ?at=x,y,向き(度, 東=0 反時計回り),見下ろし(度) で立ち位置を指定 (座標は平面図の m)
+  const at = QUERY.get("at")?.split(",").map(Number)
+  if (at && at.length >= 2 && at.every(Number.isFinite)) {
+    player.x = at[0]
+    player.y = at[1]
+    player.heading = ((at[2] ?? 90) * Math.PI) / 180
+    player.pitch = (-(at[3] ?? 0) * Math.PI) / 180
+  }
   return s
 }
 

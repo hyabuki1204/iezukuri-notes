@@ -15,12 +15,14 @@ export interface QualityProfile {
   /** 床の平面反射 */
   reflector: boolean
   bloom: boolean
+  /** 床の 2K テクスチャ (PC のみ) */
+  hiResTextures: boolean
 }
 
 export const QUALITY: Record<Quality, QualityProfile> = {
-  low: { dpr: 1, shadow: "pcf", shadowSize: 2048, ao: "off", baked: false, detailMaps: false, glass: "basic", reflector: false, bloom: false },
-  medium: { dpr: 1.5, shadow: "vsm", shadowSize: 4096, ao: "half", baked: true, detailMaps: true, glass: "transmit", reflector: false, bloom: true },
-  ultra: { dpr: 2, shadow: "pcss", shadowSize: 4096, ao: "full", baked: true, detailMaps: true, glass: "transmit", reflector: true, bloom: true },
+  low: { dpr: 1, shadow: "pcf", shadowSize: 2048, ao: "off", baked: false, detailMaps: false, glass: "basic", reflector: false, bloom: false, hiResTextures: false },
+  medium: { dpr: 1.5, shadow: "vsm", shadowSize: 4096, ao: "half", baked: true, detailMaps: true, glass: "transmit", reflector: false, bloom: true, hiResTextures: false },
+  ultra: { dpr: 2, shadow: "pcss", shadowSize: 4096, ao: "full", baked: true, detailMaps: true, glass: "transmit", reflector: true, bloom: true, hiResTextures: true },
 }
 
 export const QUALITY_LABEL: Record<Quality, string> = { low: "LOW", medium: "MEDIUM", ultra: "ULTRA" }
