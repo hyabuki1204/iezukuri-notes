@@ -1,4 +1,4 @@
-import { ChevronLeft, SlidersHorizontal, X } from "lucide-react"
+import { ChevronLeft, Maximize, Minimize, SlidersHorizontal, X } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { ControlPanel } from "@/components/ControlPanel"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
@@ -6,6 +6,7 @@ import { Joystick } from "@/components/Joystick"
 import { LoadingOverlay } from "@/components/LoadingOverlay"
 import { Minimap } from "@/components/Minimap"
 import { Button } from "@/components/ui/button"
+import { useFullscreen } from "@/lib/fullscreen"
 import { DATA, panoUrl, type Settings } from "@/scene/data"
 import { input, jumpToPreset, player, tour } from "@/scene/player"
 import { DEFAULT_QUALITY } from "@/scene/quality"
@@ -110,10 +111,26 @@ export default function App() {
   const [s, setS] = useState<Settings>(INITIAL)
   const [touring, setTouring] = useState(false)
   const [panelOpen, setPanelOpen] = useState(
-    () => QUERY.get("panel") !== "0" && matchMedia("(min-width: 768px)").matches,
+    () => QUERY.get("panel") !== "0" && matchMedia("(min-width: 768px) and (min-height: 521px)").matches,
   )
   const coarse = useCoarsePointer()
   const avail = usePanoAvailability(s)
+  const fs = useFullscreen()
+
+  const onFullscreen = useCallback(() => {
+    if (!fs.full) setPanelOpen(false)
+    fs.toggle()
+  }, [fs])
+
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => {
+      if (e.code !== "KeyF" || e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select")) return
+      onFullscreen()
+    }
+    addEventListener("keydown", f)
+    return () => removeEventListener("keydown", f)
+  }, [onFullscreen])
 
   const set = useCallback((patch: Partial<Settings>) => setS((p) => ({ ...p, ...patch })), [])
 
@@ -192,61 +209,87 @@ export default function App() {
       </ErrorBoundary>
       <LoadingOverlay />
 
-      <header className="pointer-events-none absolute top-0 left-0 max-w-[calc(100%-8.5rem)] p-3 md:max-w-none md:p-5">
-        <div className="pointer-events-auto rounded-xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-md">
-          {EMBEDDED && (
-            <a href="/" className="mb-1.5 inline-flex items-center gap-1 text-[11px] text-white/60 hover:text-white md:text-xs">
-              <ChevronLeft className="size-3.5" /> 家づくりメモ
-            </a>
-          )}
-          <h1 className="text-sm font-semibold tracking-wide md:text-base">LDK ウォークスルー</h1>
-          <p className="mt-0.5 hidden text-[11px] text-white/55 sm:block md:text-xs">平屋 LDK 約25畳 ・ 南面ハイサッシ ・ 挽板フローリング</p>
-          <p className="mt-2 inline-flex rounded-md bg-amber-200/90 px-2 py-0.5 text-[11px] font-medium text-neutral-950">{ceilingLabel}</p>
-        </div>
-      </header>
-
-      <div className="absolute bottom-3 left-3 flex flex-col items-start gap-3 md:bottom-5 md:left-5">
-        {coarse && s.mode === "walk" && <Joystick />}
-        <div className="rounded-xl border border-white/10 bg-black/45 p-2 backdrop-blur-md">
-          <Minimap mode={s.mode} pano={s.pano} onPano={onPano} className="block w-40 md:w-56" />
-          <p className="px-1 pt-1 text-[10px] text-white/45">{s.mode === "pano" ? `番号を${coarse ? "タップ" : "クリック"}で地点移動` : `${coarse ? "タップ" : "クリック"}でその位置へ移動`}</p>
-        </div>
-      </div>
-
-      <aside
-        className={
-          "absolute top-0 right-0 bottom-0 flex w-full max-w-[22rem] flex-col p-3 transition-transform duration-300 md:p-5 " +
-          (panelOpen ? "translate-x-0" : "translate-x-full")
-        }
+      {/* ノッチ・ホームバーにボタンが隠れないよう、UI はセーフエリア内に置く */}
+      <div
+        className="pointer-events-none absolute"
+        style={{ top: "env(safe-area-inset-top)", right: "env(safe-area-inset-right)", bottom: "env(safe-area-inset-bottom)", left: "env(safe-area-inset-left)" }}
       >
-        <div className="relative flex max-h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <span className="text-sm font-medium">表示条件</span>
-            <Button size="icon-sm" variant="ghost" onClick={() => setPanelOpen(false)} aria-label="パネルを閉じる">
-              <X />
-            </Button>
-          </div>
-          <ControlPanel
-            s={s}
-            set={set}
-            touring={touring}
-            onTour={onTour}
-            onPreset={onPreset}
-            onReset={onReset}
-            panoAvailable={avail}
-            className="overflow-y-auto px-4 py-4"
-          />
+        {!fs.full && (
+          <header className="pointer-events-none absolute top-0 left-0 max-w-[calc(100%-11.5rem)] p-3 md:max-w-none md:p-5 short:p-3!">
+            <div className="pointer-events-auto rounded-xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-md">
+              {EMBEDDED && (
+                <a href="/" className="mb-1.5 inline-flex items-center gap-1 text-[11px] text-white/60 hover:text-white md:text-xs">
+                  <ChevronLeft className="size-3.5" /> 家づくりメモ
+                </a>
+              )}
+              <h1 className="text-sm font-semibold tracking-wide md:text-base">LDK ウォークスルー</h1>
+              <p className="mt-0.5 hidden text-[11px] text-white/55 sm:block md:text-xs short:hidden!">平屋 LDK 約25畳 ・ 南面ハイサッシ ・ 挽板フローリング</p>
+              <p className="mt-2 inline-flex rounded-md bg-amber-200/90 px-2 py-0.5 text-[11px] font-medium text-neutral-950">{ceilingLabel}</p>
+            </div>
+          </header>
+        )}
+
+        <div className="pointer-events-auto absolute bottom-3 left-3 flex flex-col items-start gap-3 md:bottom-5 md:left-5 short:bottom-3! short:left-3! short:flex-row short:items-end">
+          {coarse && s.mode === "walk" && <Joystick />}
+          {!fs.full && (
+            <div className="rounded-xl border border-white/10 bg-black/45 p-2 backdrop-blur-md">
+              <Minimap mode={s.mode} pano={s.pano} onPano={onPano} className="block w-40 md:w-56 short:w-32!" />
+              <p className="px-1 pt-1 text-[10px] text-white/45 short:hidden">{s.mode === "pano" ? `番号を${coarse ? "タップ" : "クリック"}で地点移動` : `${coarse ? "タップ" : "クリック"}でその位置へ移動`}</p>
+            </div>
+          )}
         </div>
-      </aside>
-      {!panelOpen && (
-        <Button
-          onClick={() => setPanelOpen(true)}
-          className="absolute top-3 right-3 md:top-5 md:right-5"
-          variant="secondary"
+
+        <aside
+          className={
+            "pointer-events-auto absolute top-0 right-0 bottom-0 flex w-full max-w-[22rem] flex-col p-3 transition-transform duration-300 md:p-5 short:p-3! " +
+            (panelOpen ? "translate-x-0" : "translate-x-full")
+          }
+          inert={!panelOpen}
         >
-          <SlidersHorizontal /> 表示条件
-        </Button>
-      )}
+          <div className="relative flex max-h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <span className="text-sm font-medium">表示条件</span>
+              <div className="flex items-center gap-1">
+                <Button size="icon-sm" variant="ghost" onClick={onFullscreen} aria-label="全画面表示" title="全画面表示 (F)">
+                  <Maximize />
+                </Button>
+                <Button size="icon-sm" variant="ghost" onClick={() => setPanelOpen(false)} aria-label="パネルを閉じる">
+                  <X />
+                </Button>
+              </div>
+            </div>
+            <ControlPanel
+              s={s}
+              set={set}
+              touring={touring}
+              onTour={onTour}
+              onPreset={onPreset}
+              onReset={onReset}
+              panoAvailable={avail}
+              className="overflow-y-auto px-4 py-4"
+            />
+          </div>
+        </aside>
+        {!panelOpen && (
+          <div className="pointer-events-auto absolute top-3 right-3 flex gap-2 md:top-5 md:right-5 short:top-3! short:right-3!">
+            <Button
+              onClick={onFullscreen}
+              variant="secondary"
+              size="icon"
+              className={fs.full ? "bg-black/45 text-white backdrop-blur-md hover:bg-black/60" : undefined}
+              aria-label={fs.full ? "全画面を終了" : "全画面表示"}
+              title={fs.full ? "全画面を終了 (F)" : "全画面表示 (F)"}
+            >
+              {fs.full ? <Minimize /> : <Maximize />}
+            </Button>
+            {!fs.full && (
+              <Button onClick={() => setPanelOpen(true)} variant="secondary">
+                <SlidersHorizontal /> 表示条件
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

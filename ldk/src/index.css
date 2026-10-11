@@ -4,6 +4,8 @@
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
+/* スマホ横向きなど高さの低い画面。md (幅768px以上) にも当たるので ! で上書きする */
+@custom-variant short (@media (max-height: 520px));
 
 @theme inline {
     --font-heading: var(--font-sans);
