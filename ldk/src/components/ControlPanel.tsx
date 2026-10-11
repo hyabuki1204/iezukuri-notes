@@ -146,6 +146,7 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
           onChange={(kitchen) => set({ kitchen })}
           options={[
             { value: "black", label: "マットブラック" },
+            { value: "gray", label: "マットグレー" },
             { value: "white", label: "マットホワイト" },
           ]}
         />

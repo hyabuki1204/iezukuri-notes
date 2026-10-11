@@ -673,6 +673,7 @@ export function kitchenMaterialFor(name: string, lib: MaterialLib): Material | u
 export const KITCHEN_PALETTE = {
   // 黒は窓の映り込みで灰色に浮きやすいので、鏡面反射 (F0) も弱めて艶消しの黒に見せる
   black: { body: lin(0.007, 0.007, 0.007), bodyRough: 0.6, top: lin(0.011, 0.011, 0.0105), spec: 0.3 },
+  gray: { body: lin(0.15, 0.15, 0.145), bodyRough: 0.6, top: lin(0.19, 0.19, 0.185), spec: 0.6 },
   white: { body: lin(0.8, 0.8, 0.78), bodyRough: 0.55, top: lin(0.8, 0.8, 0.78), spec: 1 },
 } as const
 

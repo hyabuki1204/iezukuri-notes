@@ -41,7 +41,7 @@ function initialSettings(): Settings {
   pick("mode", ["walk", "pano"])
   pick("ceiling", [2.5, 2.7])
   pick("ceilColor", ["wood", "white"])
-  pick("kitchen", ["black", "white"])
+  pick("kitchen", ["black", "gray", "white"])
   pick("curtain", ["open", "closed"])
   pick("doors", ["open", "closed"])
   pick("time", ["day", "night"])

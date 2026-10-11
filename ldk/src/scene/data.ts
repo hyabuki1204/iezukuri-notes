@@ -7,7 +7,7 @@ export const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`
 
 export type CeilingHeight = 2.5 | 2.7
 export type CeilingColor = "wood" | "white"
-export type KitchenColor = "black" | "white"
+export type KitchenColor = "black" | "gray" | "white"
 export type CurtainState = "open" | "closed"
 export type DoorState = "closed" | "open"
 export type TimeOfDay = "day" | "night"
