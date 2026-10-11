@@ -50,16 +50,19 @@ export function Player({ eyeHeight, fov, anchor }: Props) {
     let dragging = false
     let lx = 0
     let ly = 0
+    // タッチは景色をつかんで動かす向き (ストリートビュー式)、マウスは視線を動かす向き
+    let sign = 1
     const down = (e: PointerEvent) => {
       dragging = true
       lx = e.clientX
       ly = e.clientY
+      sign = e.pointerType === "touch" ? -1 : 1
       el.setPointerCapture(e.pointerId)
     }
     const move = (e: PointerEvent) => {
       if (!dragging) return
-      input.look.dx += e.clientX - lx
-      input.look.dy += e.clientY - ly
+      input.look.dx += sign * (e.clientX - lx)
+      input.look.dy += sign * (e.clientY - ly)
       lx = e.clientX
       ly = e.clientY
       invalidate()
