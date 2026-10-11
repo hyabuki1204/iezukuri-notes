@@ -113,5 +113,5 @@ export function hasLightmap(ceiling: CeilingHeight) {
 }
 
 export function panoUrl(ceiling: CeilingHeight, color: CeilingColor, point: string) {
-  return asset(`panos/${Math.round(ceiling * 1000)}_${color}_${point}.jpg`)
+  return asset(`panos/${Math.round(ceiling * 1000)}_${color}_${point}${MOBILE ? "_m" : ""}.jpg`)
 }
