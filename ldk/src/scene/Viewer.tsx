@@ -4,7 +4,7 @@ import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from "@react-three/pos
 import { ToneMappingMode } from "postprocessing"
 import { lazy, Suspense, useEffect } from "react"
 import { NoToneMapping, PCFShadowMap, VSMShadowMap } from "three"
-import { DATA, EYE_HEIGHT, hasLightmap, panoUrl, type Settings } from "./data"
+import { DATA, EYE_HEIGHT, hasLightmap, MOBILE, panoUrl, type Settings } from "./data"
 import { FloorReflector } from "./FloorReflector"
 import { LdkModel } from "./LdkModel"
 import { Lighting } from "./Lighting"
@@ -12,6 +12,9 @@ import { usePtStatus } from "./ptStatus"
 import { PanoView } from "./PanoView"
 import { Player } from "./Player"
 import { QUALITY, type QualityProfile, type ToneMap } from "./quality"
+
+/** スマホの描画解像度の上限。横向きにすると描画バッファを作り直すので、iOS の GPU メモリ上限に余裕を残す */
+const MOBILE_DPR = 1.5
 
 /** パストレーサーは PC で使うときだけ読み込む */
 const PathTracer = lazy(() => import("./PathTracer"))
@@ -71,7 +74,7 @@ export function Viewer({ s }: { s: Settings }) {
       key={s.quality}
       shadows={{ type: q.shadow === "vsm" ? VSMShadowMap : PCFShadowMap }}
       frameloop="demand"
-      dpr={[1, q.dpr]}
+      dpr={[1, MOBILE ? Math.min(q.dpr, MOBILE_DPR) : q.dpr]}
       gl={{ antialias: false, toneMapping: NoToneMapping, powerPreference: "high-performance" }}
       camera={{ fov: s.fov, near: 0.03, far: 200 }}
       className="touch-none"

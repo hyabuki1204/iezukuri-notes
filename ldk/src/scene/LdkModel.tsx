@@ -26,6 +26,7 @@ import {
   hasLightmap,
   type KitchenColor,
   lightmapUrl,
+  MOBILE,
   MODEL_URL,
   toThree,
   type TimeOfDay,
@@ -37,8 +38,6 @@ import { setCollision } from "./player"
 import type { QualityProfile } from "./quality"
 
 const SHRUBS = ["shrub_02", "shrub_03"]
-/** 挽板の 2K 版は PC の ULTRA だけ (スマホは GPU メモリを節約する) */
-const HI_RES = !matchMedia("(pointer: coarse)").matches
 const floorTextures = (hi: boolean) =>
   ["diff", "nor", "rough"].map((k) => `textures/laminate_floor_02_${k}${hi ? "_2k" : ""}.jpg`)
 const SHRUB_TEXTURES = SHRUBS.flatMap((s) => [`textures/${s}_diff.webp`, `textures/${s}_nor.jpg`])
@@ -55,11 +54,11 @@ const SCAN_TEXTURES = [
   "concrete_worn_diff",
   "concrete_worn_nor",
   "concrete_worn_rough",
-].map((n) => `textures/${n}.jpg`)
+].map((n) => `textures/${n}${MOBILE ? "_512" : ""}.jpg`)
 
 /** 画質を切り替えると Canvas ごと作り直すため、読み込むテクスチャの組はマウント中は変わらない */
 function useMaterialLib(q: QualityProfile): MaterialLib {
-  const base = [...floorTextures(HI_RES && q.hiResTextures), ...SHRUB_TEXTURES]
+  const base = [...floorTextures(!MOBILE && q.hiResTextures), ...SHRUB_TEXTURES]
   const urls = (q.detailMaps ? [...base, ...DETAIL_TEXTURES, ...SCAN_TEXTURES] : base).map(asset)
   const textures = useTexture(urls)
   const [floorDiff, floorNor, floorRough] = textures
@@ -243,7 +242,8 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
   const { scene } = useGLTF(MODEL_URL[ceiling])
   const lib = useMaterialLib(q)
   const invalidate = useThree((s) => s.invalidate)
-  const canBake = q.baked && hasLightmap(ceiling)
+  // スマホは表示中の天井高のライトマップだけ持つ
+  const canBake = q.baked && hasLightmap(ceiling) && (visible || !MOBILE)
   const [lm, sky] = useTexture(canBake ? [lightmapUrl(ceiling), asset("textures/suburban_garden_sky.jpg")] : []) as Texture[]
   const { root, slots, board: boardMesh } = useMemo(() => {
     const r = scene.clone(true)

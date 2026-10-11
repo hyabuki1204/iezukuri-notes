@@ -96,8 +96,11 @@ export const MODEL_URL: Record<CeilingHeight, string> = {
   2.7: asset("models/ldk_2700.glb"),
 }
 
+/** スマホ・タブレット。iOS Safari は GPU メモリが上限を超えるとページごと落ちるので、テクスチャを軽くする */
+export const MOBILE = matchMedia("(pointer: coarse)").matches
+
 export function lightmapUrl(ceiling: CeilingHeight) {
-  return asset(`lightmaps/ldk_${Math.round(ceiling * 1000)}.png`)
+  return asset(`lightmaps/ldk_${Math.round(ceiling * 1000)}${MOBILE ? "_1k" : ""}.png`)
 }
 
 export function probeUrl(ceiling: CeilingHeight) {
