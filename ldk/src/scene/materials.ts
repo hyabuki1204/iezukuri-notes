@@ -453,6 +453,9 @@ export interface MaterialLib {
   kitchenTop: MeshPhysicalMaterial
   /** キッチンボード (北壁のキッチンパネル) */
   boardBody: MeshPhysicalMaterial
+  /** 白い人造大理石シンク: 縁 (シンク) とボウル内 (シンク_影、UV はボウルの外形で 0〜1) */
+  sinkRim: MeshPhysicalMaterial
+  sinkBowl: MeshPhysicalMaterial
   led: MeshStandardMaterial
   /** 壁クロス。昼は emissive で面の向きによる明暗差を薄め、どの壁も白に近いライトグレーに揃える */
   wall: MeshStandardMaterial
@@ -662,11 +665,71 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
     kitchenBody,
     kitchenTop,
     boardBody,
+    sinkRim: new MeshPhysicalMaterial({ color: lin(0.78, 0.78, 0.77), roughness: 0.28, specularIntensity: 0.7 }),
+    sinkBowl: new MeshPhysicalMaterial({ map: sinkBowlTexture(), roughness: 0.3, specularIntensity: 0.6 }),
     led,
     wall,
     ceilWood,
     ceilWhite,
   }
+}
+
+/** 天板に穴がないので、ボウルの深さは縁に向かう陰影と排水口の描き込みで見せる (U = 幅、V = 奥行き) */
+function sinkBowlTexture() {
+  const W = 512
+  const H = 840
+  const cv = document.createElement("canvas")
+  cv.width = W
+  cv.height = H
+  const ctx = cv.getContext("2d")!
+  const id = ctx.createImageData(W, H)
+  const corner = 0.09 * W
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      // 角丸長方形の縁までの距離 (px)
+      const qx = Math.max(corner - Math.min(x, W - 1 - x), 0)
+      const qy = Math.max(corner - Math.min(y, H - 1 - y), 0)
+      const d = qx > 0 && qy > 0 ? corner - Math.hypot(qx, qy) : Math.min(x, W - 1 - x, y, H - 1 - y)
+      const wall = Math.exp(-Math.max(d, 0) / (0.07 * W))
+      const v = d < 0 ? 0.55 : 0.93 - 0.3 * wall + 0.06 * Math.exp(-Math.max(d, 0) / 3)
+      const i = (y * W + x) * 4
+      id.data[i] = id.data[i + 1] = v * 252
+      id.data[i + 2] = v * 250
+      id.data[i + 3] = 255
+    }
+  }
+  ctx.putImageData(id, 0, 0)
+  // 排水口 (ステンレスの目皿) を奥側寄りに
+  const cx = W / 2
+  const cy = H * 0.72
+  const r = 0.11 * W
+  const g = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * 1.5)
+  g.addColorStop(0, "rgba(0,0,0,0.18)")
+  g.addColorStop(1, "rgba(0,0,0,0)")
+  ctx.fillStyle = g
+  ctx.fillRect(cx - r * 1.6, cy - r * 1.6, r * 3.2, r * 3.2)
+  ctx.fillStyle = "rgb(150,150,148)"
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = "rgb(188,188,186)"
+  ctx.beginPath()
+  ctx.arc(cx, cy, r * 0.82, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = "rgb(110,110,108)"
+  for (let k = 0; k < 3; k++) {
+    for (let a = 0; a < 12; a++) {
+      const rr = r * (0.2 + k * 0.2)
+      const th = (a / 12) * Math.PI * 2 + k * 0.3
+      ctx.beginPath()
+      ctx.arc(cx + Math.cos(th) * rr, cy + Math.sin(th) * rr, r * 0.045, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+  const t = new CanvasTexture(cv)
+  t.colorSpace = SRGBColorSpace
+  t.anisotropy = 8
+  return t
 }
 
 export function kitchenMaterialFor(name: string, lib: MaterialLib): Material | undefined {

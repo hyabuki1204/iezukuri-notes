@@ -114,8 +114,9 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
     const mesh = o as Mesh
     if (!mesh.isMesh) return
     const name = (mesh.material as { name?: string }).name ?? ""
-    const mat = kitchenMaterialFor(name, lib) ?? lib.byName[name]
+    const mat = SINK_MESH[mesh.name]?.(lib) ?? kitchenMaterialFor(name, lib) ?? lib.byName[name]
     if (mat) mesh.material = mat
+    if (mesh.name === "シンク_影") applyBoxUV(mesh)
     const g = mesh.geometry
     // 2.5m / 2.7m のクローンはジオメトリを共有するので、ライトマップ UV の退避は 1 回だけ
     const lightmapped = LIGHTMAPPED.has(name) && (!!g.getAttribute("uv1") || !!g.getAttribute("uv"))
@@ -141,6 +142,25 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
     })
   })
   return slots
+}
+
+const SINK_MESH: Record<string, (lib: MaterialLib) => Material> = {
+  "シンク": (lib) => lib.sinkRim,
+  "シンク_影": (lib) => lib.sinkBowl,
+}
+
+/** 上面をメッシュの外形いっぱいに 0〜1 で貼る (U = 東西、V = 南北) */
+function applyBoxUV(mesh: Mesh) {
+  const g = mesh.geometry
+  const pos = g.getAttribute("position")
+  if (!g.boundingBox) g.computeBoundingBox()
+  const { min, max } = g.boundingBox!
+  const uv = new Float32Array(pos.count * 2)
+  for (let i = 0; i < pos.count; i++) {
+    uv[i * 2] = (pos.getX(i) - min.x) / (max.x - min.x)
+    uv[i * 2 + 1] = (pos.getZ(i) - min.z) / (max.z - min.z)
+  }
+  g.setAttribute("uv", new BufferAttribute(uv, 2))
 }
 
 /** ペニンシュラが接する北壁のキッチンパネル (天板上端〜天井、ペニンシュラ幅)。壁面と重ならないよう 4mm 手前に貼る */
