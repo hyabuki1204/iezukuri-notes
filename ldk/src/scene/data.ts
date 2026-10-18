@@ -51,6 +51,30 @@ export interface DoorDef {
   room: string
 }
 
+export interface SwingDoor {
+  name: string
+  room: string
+  x0: number
+  x1: number
+  wy0: number
+  wy1: number
+  hinge: number
+  into: number
+}
+
+/** ホールと子ども部屋。LDK 側はハイドア、部屋への入口は通常高の開き戸 */
+export interface KidsWing {
+  x0: number
+  x1: number
+  y1: number
+  shell: number
+  hall: [number, number, number, number]
+  door_h: number
+  win19: [number, number, number, number]
+  win17: [number, number, number, number]
+  swings: SwingDoor[]
+}
+
 interface Raw {
   P: {
     W: number
@@ -77,6 +101,7 @@ interface Raw {
   cameras: Record<string, { loc: [number, number, number]; target: [number, number, number]; label: string }>
   panos: Record<string, { loc: [number, number, number]; label: string }>
   doors: DoorDef[]
+  kids?: KidsWing
   downlights: [number, number][]
   sun: { dir: [number, number, number] }
   /** Cycles で焼いた昼のライトマップ (scripts/export_gltf.py)。scale = PNG の 1.0 が表す放射輝度 */

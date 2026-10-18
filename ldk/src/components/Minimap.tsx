@@ -4,7 +4,8 @@ import { DATA, ROOM, type ViewMode } from "@/scene/data"
 import { player, teleport } from "@/scene/player"
 
 const PAD = 0.45
-const VB_W = ROOM.W + PAD * 2
+const EAST = DATA.kids ? DATA.kids.shell + 0.2 : ROOM.W
+const VB_W = EAST + PAD * 2
 const VB_H = ROOM.D + PAD * 2 + 0.4
 /** Blender (x東, y北) -> SVG (北が上) */
 const sx = (x: number) => x + PAD
@@ -107,6 +108,27 @@ export function Minimap({ mode, pano, onPano, className }: Props) {
       {DATA.doors.map((d) => (
         <line key={d.name} {...doorLine(d)} className="stroke-amber-200" strokeWidth={0.16} />
       ))}
+      {DATA.kids && (
+        <>
+          <Rect r={[DATA.kids.x0, DATA.kids.x1, 0, DATA.kids.swings[0].wy0]} className="fill-white/[0.03] stroke-white/35" />
+          <Rect r={DATA.kids.hall} className="fill-white/[0.06] stroke-white/50" />
+          <Rect
+            r={[DATA.kids.x0, DATA.kids.x1, DATA.kids.swings[1].wy1, DATA.kids.y1]}
+            className="fill-white/[0.03] stroke-white/35"
+          />
+          {DATA.kids.swings.map((d) => (
+            <line
+              key={d.name}
+              x1={sx(d.x0)}
+              x2={sx(d.x1)}
+              y1={sy((d.wy0 + d.wy1) / 2)}
+              y2={sy((d.wy0 + d.wy1) / 2)}
+              className="stroke-teal-200"
+              strokeWidth={0.12}
+            />
+          ))}
+        </>
+      )}
       <text x={sx(ROOM.W / 2)} y={sy(-0.55)} textAnchor="middle" className="fill-white/50 text-[0.28px]">
         南（庭）
       </text>

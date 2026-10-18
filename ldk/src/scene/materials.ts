@@ -608,6 +608,7 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
     "見切り_ステンレスHL": new MeshStandardMaterial({ color: lin(0.55, 0.55, 0.54), roughness: 0.35, metalness: 1 }),
     "建具_白杢": door,
     "建具_白杢_Y": door,
+    "開き戸_ホワイト": std(lin(0.88, 0.88, 0.87), 0.48),
     "隣室_壁": std(lin(0.6, 0.6, 0.59), 0.9),
     "目地": std(lin(0.004, 0.004, 0.004), 0.9),
     "IH_ブラックガラス": std(lin(0.005, 0.005, 0.005), 0.08),
