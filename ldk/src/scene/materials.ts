@@ -72,6 +72,23 @@ function canvasTexture(cv: HTMLCanvasElement, size: number, srgb = true) {
   return t
 }
 
+/** ダインコンクリートのシェードボーダー。1枚 160mm、下端に影の目地。薄いグレー */
+function shadeBorderMap() {
+  const cv = document.createElement("canvas")
+  cv.width = 8
+  cv.height = 64
+  const g = cv.getContext("2d")
+  if (!g) return canvasTexture(cv, 0.16)
+  const grd = g.createLinearGradient(0, 0, 0, 64)
+  grd.addColorStop(0, "#c9c7c1")
+  grd.addColorStop(0.7, "#b6b3ad")
+  grd.addColorStop(0.84, "#6f6d69")
+  grd.addColorStop(1, "#a8a59f")
+  g.fillStyle = grd
+  g.fillRect(0, 0, 8, 64)
+  return canvasTexture(cv, 0.16)
+}
+
 function seeded(seed: number) {
   let s = seed
   return () => (s = (s * 16807) % 2147483647) / 2147483647
@@ -645,7 +662,7 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
       depthWrite: false,
     }),
     "ドレープカーテン_リネン": fabric(lin(0.52, 0.48, 0.43), lin(0.6, 0.57, 0.52), { side: DoubleSide }),
-    "外壁_ダインコンクリート調": std(lin(0.52, 0.51, 0.48), 0.85),
+    "外壁_ダインコンクリート調": std(lin(1, 1, 1), 0.88, { map: shadeBorderMap() }),
     "テラス_木調タイルデッキ": std(lin(1, 1, 1), 0.7, { map: deckTex }),
     "ピアノ_木目": std(lin(1, 1, 1), 0.3, { map: pianoTex }),
     "鍵盤_白": std(lin(0.82, 0.8, 0.75), 0.2),
@@ -683,6 +700,7 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
       "TV壁_トラバーチン調大判": "plan",
       "トラバーチン": "plan",
       "テラス_木調タイルデッキ": "plan",
+      "外壁_ダインコンクリート調": "plan",
       "ピアノ_木目": "vertical",
       "建具_白杢": "vertical",
       "建具_白杢_Y": "vertical",

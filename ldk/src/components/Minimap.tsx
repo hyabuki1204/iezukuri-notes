@@ -6,11 +6,12 @@ import { player, teleport } from "@/scene/player"
 const PAD = 0.45
 const EAST = DATA.kids ? DATA.kids.shell + 0.2 : ROOM.W
 const SOUTH = Math.min(0, DATA.kids?.south ?? 0)
+const NORTH = Math.max(ROOM.D, DATA.kids?.y1 ?? ROOM.D)
 const VB_W = EAST + PAD * 2
-const VB_H = ROOM.D - SOUTH + PAD * 2 + 0.5
+const VB_H = NORTH - SOUTH + PAD * 2 + 0.5
 /** Blender (x東, y北) -> SVG (北が上) */
 const sx = (x: number) => x + PAD
-const sy = (y: number) => ROOM.D + PAD - y
+const sy = (y: number) => NORTH + PAD - y
 
 function Rect({ r, className }: { r: [number, number, number, number]; className?: string }) {
   const [x0, x1, y0, y1] = r
