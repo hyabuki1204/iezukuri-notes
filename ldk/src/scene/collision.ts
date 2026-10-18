@@ -8,9 +8,9 @@ import { type BufferGeometry, type Mesh, type Object3D, Vector3 } from "three"
 const CELL = 0.04
 const BAND: [number, number] = [0.1, 1.3]
 const X0 = -2.6
-const Y0 = -0.5
+const Y0 = -1.5
 const NX = Math.ceil(12.2 / CELL)
-const NY = Math.ceil(9.2 / CELL)
+const NY = Math.ceil((8.7 - Y0) / CELL)
 
 export interface Grid {
   cells: Uint8Array

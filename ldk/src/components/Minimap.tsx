@@ -5,8 +5,9 @@ import { player, teleport } from "@/scene/player"
 
 const PAD = 0.45
 const EAST = DATA.kids ? DATA.kids.shell + 0.2 : ROOM.W
+const SOUTH = Math.min(0, DATA.kids?.south ?? 0)
 const VB_W = EAST + PAD * 2
-const VB_H = ROOM.D + PAD * 2 + 0.4
+const VB_H = ROOM.D - SOUTH + PAD * 2 + 0.5
 /** Blender (x東, y北) -> SVG (北が上) */
 const sx = (x: number) => x + PAD
 const sy = (y: number) => ROOM.D + PAD - y
@@ -110,7 +111,7 @@ export function Minimap({ mode, pano, onPano, className }: Props) {
       ))}
       {DATA.kids && (
         <>
-          <Rect r={[DATA.kids.x0, DATA.kids.x1, 0, DATA.kids.swings[0].wy0]} className="fill-white/[0.03] stroke-white/35" />
+          <Rect r={[DATA.kids.x0, DATA.kids.x1, DATA.kids.south ?? 0, DATA.kids.swings[0].wy0]} className="fill-white/[0.03] stroke-white/35" />
           <Rect r={DATA.kids.hall} className="fill-white/[0.06] stroke-white/50" />
           <Rect
             r={[DATA.kids.x0, DATA.kids.x1, DATA.kids.swings[1].wy1, DATA.kids.y1]}

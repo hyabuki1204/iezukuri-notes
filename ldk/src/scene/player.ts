@@ -35,7 +35,9 @@ export function setCollision(root: Object3D) {
 }
 
 export function blocked(x: number, y: number): boolean {
-  if (y < RADIUS) return true
+  const k = DATA.kids
+  const inSouthRoom = !!k && k.south !== undefined && x > k.x0 + RADIUS && x < k.x1 - RADIUS && y > k.south + RADIUS
+  if (y < RADIUS && !inSouthRoom) return true
   if (!grid) return x < RADIUS || x > ROOM.W - RADIUS || y > ROOM.D - RADIUS
   return gridBlocked(grid, x, y)
 }

@@ -76,6 +76,8 @@ export interface KidsWing {
   x0: number
   x1: number
   y1: number
+  /** 19 の南内壁。LDK 南面 (y=0) より南 */
+  south?: number
   shell: number
   hall: [number, number, number, number]
   door_h: number

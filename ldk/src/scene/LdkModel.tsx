@@ -118,6 +118,8 @@ const LIGHTMAPPED = new Set(DATA.lightmap?.mats ?? [])
 const FLOOR_MATS = new Set(["挽板フローリング_オーク", "キッチン床_モルタル調"])
 /** 南面サッシより外 (Blender y < -0.3) と外装。焼き込み時は室内プローブではなく空を環境光にする */
 const EXTERIOR_MESH = /^(外壁|鼻隠し|屋根)/
+/** 子ども部屋が南へ出ても、室内のクロスや床は空の環境光にしない */
+const INTERIOR_FINISH = /壁_クロス|挽板フローリング|開き戸_オーク|レースカーテン|寝具|サッシ枠|Low-E|ダウンライト枠|折れ戸|目地/
 
 interface Slot {
   mesh: Mesh
@@ -158,7 +160,7 @@ function prepare(root: Object3D, lib: MaterialLib): Slot[] {
       name,
       ceiling: CEILING_MESH.test(mesh.name),
       lightmapped,
-      exterior: !lightmapped && (z > 0.3 || EXTERIOR_MESH.test(mesh.name)),
+      exterior: !lightmapped && (EXTERIOR_MESH.test(mesh.name) || (z > 0.3 && !INTERIOR_FINISH.test(name))),
     })
   })
   return slots
@@ -204,8 +206,8 @@ function exteriorVariant(base: Material, sky: Texture) {
 const SKY_ENV = 0.3
 
 const CURTAIN_GROUPS = {
-  laceOpen: /^レース\d/,
-  laceClosed: /^レース閉/,
+  laceOpen: /^レース\d|窓_レース開/,
+  laceClosed: /^レース閉|窓_レース閉/,
   drapeOpen: /^ドレープ\d/,
   drapeClosed: /^ドレープ閉/,
 }
