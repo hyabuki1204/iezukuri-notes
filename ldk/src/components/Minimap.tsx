@@ -18,7 +18,7 @@ function Rect({ r, className }: { r: [number, number, number, number]; className
   return <rect x={sx(x0)} y={sy(y1)} width={x1 - x0} height={y1 - y0} className={className} />
 }
 
-function doorLine(d: (typeof DATA.doors)[number]) {
+function doorLine(d: Pick<(typeof DATA.doors)[number], "wall" | "a0" | "a1">) {
   const T = DATA.P.WALL
   if (d.wall === "W") return { x1: sx(-T / 2), y1: sy(d.a0), x2: sx(-T / 2), y2: sy(d.a1) }
   if (d.wall === "E") return { x1: sx(ROOM.W + T / 2), y1: sy(d.a0), x2: sx(ROOM.W + T / 2), y2: sy(d.a1) }
@@ -110,6 +110,7 @@ export function Minimap({ mode, pano, onPano, className }: Props) {
       {DATA.doors.map((d) => (
         <line key={d.name} {...doorLine(d)} className="stroke-amber-200" strokeWidth={0.16} />
       ))}
+      {DATA.remoteNiche && <line {...doorLine(DATA.remoteNiche)} className="stroke-sky-200" strokeWidth={0.16} />}
       {DATA.kids && (
         <>
           <Rect r={[DATA.kids.x0, DATA.kids.x1, DATA.kids.south ?? 0, DATA.kids.swings[0].wy0]} className="fill-white/[0.03] stroke-white/35" />

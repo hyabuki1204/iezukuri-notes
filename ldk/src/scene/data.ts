@@ -114,6 +114,8 @@ interface Raw {
   panos: Record<string, { loc: [number, number, number]; label: string }>
   doors: DoorDef[]
   kids?: KidsWing
+  /** インターホン・スイッチ・給湯/床暖房リモコンをまとめた凹み壁 (a: 壁に沿う座標 / z: 床からの高さ) */
+  remoteNiche?: { wall: "W" | "E" | "N"; a0: number; a1: number; z0: number; z1: number; depth: number }
   downlights: [number, number][]
   sun: { dir: [number, number, number] }
   /** Cycles で焼いた昼のライトマップ (scripts/export_gltf.py)。scale = PNG の 1.0 が表す放射輝度 */
