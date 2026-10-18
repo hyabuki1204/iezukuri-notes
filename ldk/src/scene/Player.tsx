@@ -1,7 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber"
-import { useEffect } from "react"
-import type { PerspectiveCamera } from "three"
-import { toThree } from "./data"
+import { useEffect, useRef } from "react"
+import { type Object3D, type PerspectiveCamera, Raycaster, Vector2 } from "three"
+import { doorLeaf, toThree } from "./data"
 import { input, moveBy, player, tour } from "./player"
 import { LOOK_CURVE, POS_CURVE, TOUR_LENGTH, TOUR_SPEED } from "./tour"
 
@@ -22,12 +22,28 @@ interface Props {
   fov: number
   /** 360°パノラマ表示中は視点位置を固定 (Blender 座標) */
   anchor?: [number, number, number]
+  /** ほぼ動かずに離したとき、視線の先の扉を開閉する */
+  onToggleDoor?: (id: string) => void
 }
 
-export function Player({ eyeHeight, fov, anchor }: Props) {
+const TAP_SLOP = 8
+
+function chainVisible(o: Object3D): boolean {
+  for (let p: Object3D | null = o; p; p = p.parent) {
+    if (!p.visible) return false
+  }
+  return true
+}
+
+export function Player({ eyeHeight, fov, anchor, onToggleDoor }: Props) {
   const camera = useThree((s) => s.camera) as PerspectiveCamera
+  const scene = useThree((s) => s.scene)
   const gl = useThree((s) => s.gl)
   const invalidate = useThree((s) => s.invalidate)
+  const toggleRef = useRef(onToggleDoor)
+  toggleRef.current = onToggleDoor
+  const raycaster = useRef(new Raycaster())
+  const ndc = useRef(new Vector2())
 
   useEffect(() => {
     input.wake = () => invalidate()
@@ -48,26 +64,51 @@ export function Player({ eyeHeight, fov, anchor }: Props) {
   useEffect(() => {
     const el = gl.domElement
     let dragging = false
+    let dragged = false
     let lx = 0
     let ly = 0
+    let downX = 0
+    let downY = 0
     // タッチは景色をつかんで動かす向き (ストリートビュー式)、マウスは視線を動かす向き
     let sign = 1
     const down = (e: PointerEvent) => {
       dragging = true
-      lx = e.clientX
-      ly = e.clientY
+      dragged = false
+      downX = lx = e.clientX
+      downY = ly = e.clientY
       sign = e.pointerType === "touch" ? -1 : 1
       el.setPointerCapture(e.pointerId)
     }
     const move = (e: PointerEvent) => {
       if (!dragging) return
+      if (!dragged && Math.hypot(e.clientX - downX, e.clientY - downY) < TAP_SLOP) return
+      dragged = true
       input.look.dx += sign * (e.clientX - lx)
       input.look.dy += sign * (e.clientY - ly)
       lx = e.clientX
       ly = e.clientY
       invalidate()
     }
-    const up = () => (dragging = false)
+    const up = (e: PointerEvent) => {
+      if (!dragging) return
+      dragging = false
+      const toggle = toggleRef.current
+      if (dragged || !toggle) return
+      const rect = el.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
+      ndc.current.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1)
+      raycaster.current.setFromCamera(ndc.current, camera)
+      const hits = raycaster.current.intersectObjects(scene.children, true)
+      for (const h of hits) {
+        if (!chainVisible(h.object)) continue
+        const leaf = doorLeaf(h.object.name)
+        if (leaf) {
+          toggle(leaf.id)
+          invalidate()
+        }
+        break
+      }
+    }
     const kd = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest?.("input,textarea")) return
       input.keys.add(e.code)
@@ -93,7 +134,7 @@ export function Player({ eyeHeight, fov, anchor }: Props) {
       window.removeEventListener("keyup", ku)
       window.removeEventListener("blur", blur)
     }
-  }, [gl, invalidate])
+  }, [camera, gl, invalidate, scene])
 
   useFrame((_, rawDt) => {
     const taps = input.taps

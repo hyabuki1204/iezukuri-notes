@@ -214,7 +214,7 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
             ]}
           />
         </Row>
-        <Row label="ハイドア">
+        <Row label="ハイドア" hint="タップで個別に開閉">
           <Segmented
             value={s.doors}
             disabled={pano}

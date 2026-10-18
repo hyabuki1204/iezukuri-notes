@@ -22,6 +22,8 @@ import {
   type CounterTop,
   type CurtainState,
   DATA,
+  doorLeaf,
+  type DoorOverride,
   type DoorState,
   hasLightmap,
   type KitchenColor,
@@ -208,7 +210,7 @@ const CURTAIN_GROUPS = {
   drapeClosed: /^ドレープ閉/,
 }
 
-function applyVisibility(root: Object3D, curtain: CurtainState, time: TimeOfDay, doors: DoorState) {
+function applyVisibility(root: Object3D, curtain: CurtainState, time: TimeOfDay, doors: DoorState, override: DoorOverride) {
   const closed = curtain === "closed"
   const vis = {
     laceOpen: !closed,
@@ -220,8 +222,8 @@ function applyVisibility(root: Object3D, curtain: CurtainState, time: TimeOfDay,
     for (const [k, re] of Object.entries(CURTAIN_GROUPS)) {
       if (re.test(o.name)) o.visible = vis[k as keyof typeof vis]
     }
-    if (/扉_閉/.test(o.name)) o.visible = doors === "closed"
-    if (/扉_開/.test(o.name)) o.visible = doors === "open"
+    const leaf = doorLeaf(o.name)
+    if (leaf) o.visible = leaf.open === ((override[leaf.id] ?? doors) === "open")
   })
 }
 
@@ -234,11 +236,12 @@ interface Props {
   board: BoardColor
   curtain: CurtainState
   doors: DoorState
+  doorOverride: DoorOverride
   time: TimeOfDay
   q: QualityProfile
 }
 
-export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board, curtain, doors, time, q }: Props) {
+export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board, curtain, doors, doorOverride, time, q }: Props) {
   const { scene } = useGLTF(MODEL_URL[ceiling])
   const lib = useMaterialLib(q)
   const invalidate = useThree((s) => s.invalidate)
@@ -279,13 +282,13 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
   const baked = !!variants && time === "day"
 
   useEffect(() => {
-    applyVisibility(root, curtain, time, doors)
+    applyVisibility(root, curtain, time, doors, doorOverride)
     invalidate()
-  }, [root, curtain, time, doors, invalidate])
+  }, [root, curtain, time, doors, doorOverride, invalidate])
 
   useEffect(() => {
     if (visible) setCollision(root)
-  }, [root, visible, doors])
+  }, [root, visible, doors, doorOverride])
 
   useEffect(() => {
     for (const s of slots) {

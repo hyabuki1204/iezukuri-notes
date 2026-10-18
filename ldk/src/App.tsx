@@ -1,5 +1,5 @@
 import { ChevronLeft, Maximize, Minimize, SlidersHorizontal, X } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { ControlPanel } from "@/components/ControlPanel"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Joystick } from "@/components/Joystick"
@@ -8,7 +8,7 @@ import { Minimap } from "@/components/Minimap"
 import { PtBadge } from "@/components/PtBadge"
 import { Button } from "@/components/ui/button"
 import { useFullscreen } from "@/lib/fullscreen"
-import { DATA, panoUrl, type Settings } from "@/scene/data"
+import { DATA, type DoorOverride, type DoorState, panoUrl, type Settings } from "@/scene/data"
 import { input, jumpToPreset, player, tour } from "@/scene/player"
 import { DEFAULT_QUALITY } from "@/scene/quality"
 import { Viewer } from "@/scene/Viewer"
@@ -125,6 +125,9 @@ function usePanoAvailability(s: Settings) {
 
 export default function App() {
   const [s, setS] = useState<Settings>(INITIAL)
+  const [doorOverride, setDoorOverride] = useState<DoorOverride>({})
+  const doorsRef = useRef(s.doors)
+  doorsRef.current = s.doors
   const [touring, setTouring] = useState(false)
   const [panelOpen, setPanelOpen] = useState(
     () => QUERY.get("panel") !== "0" && matchMedia("(min-width: 768px) and (min-height: 521px)").matches,
@@ -148,7 +151,18 @@ export default function App() {
     return () => removeEventListener("keydown", f)
   }, [onFullscreen])
 
-  const set = useCallback((patch: Partial<Settings>) => setS((p) => ({ ...p, ...patch })), [])
+  const set = useCallback((patch: Partial<Settings>) => {
+    if (patch.doors !== undefined) setDoorOverride({})
+    setS((p) => ({ ...p, ...patch }))
+  }, [])
+
+  const toggleDoor = useCallback((id: string) => {
+    setDoorOverride((prev) => {
+      const cur = prev[id] ?? doorsRef.current
+      const next: DoorState = cur === "open" ? "closed" : "open"
+      return { ...prev, [id]: next }
+    })
+  }, [])
 
   useEffect(() => {
     const f = () => setTouring(false)
@@ -216,7 +230,7 @@ export default function App() {
         )}
       >
         {panoReady ? (
-          <Viewer s={s} />
+          <Viewer s={s} doorOverride={doorOverride} onToggleDoor={toggleDoor} />
         ) : (
           <div className="grid h-full place-items-center p-6 text-center text-sm text-white/60">
             この条件の 360° パノラマはまだレンダリング中です。しばらくすると自動で表示されます。

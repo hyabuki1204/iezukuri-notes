@@ -4,7 +4,7 @@ import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from "@react-three/pos
 import { ToneMappingMode } from "postprocessing"
 import { lazy, Suspense, useEffect, useRef } from "react"
 import { NoToneMapping, PCFShadowMap, VSMShadowMap } from "three"
-import { DATA, EYE_HEIGHT, hasLightmap, MOBILE, panoUrl, type Settings } from "./data"
+import { DATA, type DoorOverride, EYE_HEIGHT, hasLightmap, MOBILE, panoUrl, type Settings } from "./data"
 import { FloorReflector } from "./FloorReflector"
 import { LdkModel } from "./LdkModel"
 import { Lighting } from "./Lighting"
@@ -95,7 +95,7 @@ function AdaptiveDpr({ max }: { max: number }) {
   return null
 }
 
-export function Viewer({ s }: { s: Settings }) {
+export function Viewer({ s, doorOverride, onToggleDoor }: { s: Settings; doorOverride: DoorOverride; onToggleDoor: (id: string) => void }) {
   const pano = s.mode === "pano" ? DATA.panos[s.pano] : undefined
   const eye = EYE_HEIGHT[s.eye]
   const q = QUALITY[s.quality]
@@ -103,7 +103,8 @@ export function Viewer({ s }: { s: Settings }) {
   const baked = q.baked && day && hasLightmap(s.ceiling)
   const exposure = EXPOSURE[s.tone][baked ? "baked" : s.time]
   const ptOn = s.pt === "on" && s.quality !== "low" && !pano
-  const sceneKey = [s.ceiling, s.ceilColor, s.kitchen, s.counter, s.board, s.curtain, s.doors, s.time, s.lights, s.quality].join("|")
+  const doorKey = Object.entries(doorOverride).sort().map(([k, v]) => `${k}:${v}`).join(",")
+  const sceneKey = [s.ceiling, s.ceilColor, s.kitchen, s.counter, s.board, s.curtain, s.doors, doorKey, s.time, s.lights, s.quality].join("|")
   return (
     <Canvas
       key={s.quality}
@@ -117,7 +118,7 @@ export function Viewer({ s }: { s: Settings }) {
       {q.shadow === "pcss" && <SoftShadows size={18} samples={12} focus={0.6} />}
       <Exposure value={pano ? 0.9 : exposure} />
       <AdaptiveDpr max={Math.min(MOBILE ? Math.min(q.dpr, MOBILE_DPR) : q.dpr, window.devicePixelRatio || 1)} />
-      <Player eyeHeight={eye} fov={s.fov} anchor={pano?.loc} />
+      <Player eyeHeight={eye} fov={s.fov} anchor={pano?.loc} onToggleDoor={onToggleDoor} />
       {pano ? (
         <Suspense fallback={null}>
           <PanoView url={panoUrl(s.ceiling, s.ceilColor, s.pano)} loc={pano.loc} />
@@ -143,6 +144,7 @@ export function Viewer({ s }: { s: Settings }) {
               board={s.board}
               curtain={s.curtain}
               doors={s.doors}
+              doorOverride={doorOverride}
               time={s.time}
               q={q}
             />

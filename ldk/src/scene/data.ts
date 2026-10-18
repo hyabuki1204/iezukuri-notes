@@ -14,6 +14,15 @@ export type CounterTop = "match" | "genshou" | "mikage"
 export type BoardColor = "stonegray" | "match" | "none"
 export type CurtainState = "open" | "closed"
 export type DoorState = "closed" | "open"
+/** パネルの一括開閉に対する、建具ごとの上書き。キーはメッシュ名の「扉」まで */
+export type DoorOverride = Partial<Record<string, DoorState>>
+
+/** 開き戸・ハイドアのメッシュから建具 ID を取る。折れ戸は含まない。 */
+export function doorLeaf(name: string): { id: string; open: boolean } | null {
+  const m = /^(.*扉)_(閉|開)/.exec(name)
+  if (!m || m[1] === undefined || m[2] === undefined) return null
+  return { id: m[1], open: m[2] === "開" }
+}
 export type TimeOfDay = "day" | "night"
 export type LightState = "on" | "off"
 export type ViewMode = "walk" | "pano"
