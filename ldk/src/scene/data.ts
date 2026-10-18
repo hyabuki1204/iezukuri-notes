@@ -73,6 +73,7 @@ export interface KidsWing {
   win19: [number, number, number, number]
   win17: [number, number, number, number]
   swings: SwingDoor[]
+  closets?: { name: string; x0: number; x1: number; y0: number; y1: number; face: number }[]
 }
 
 interface Raw {

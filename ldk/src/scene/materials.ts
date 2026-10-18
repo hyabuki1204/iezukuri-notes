@@ -473,6 +473,7 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
   const woodRelief = opt.detail ? reliefMaps(wood.canvas, BOARD_ROWS, 1.5) : undefined
   const walnutTex = boards(tex.ash, "brightness(0.55) sepia(0.9) saturate(1.6) hue-rotate(-12deg)", 0.8, false).map
   const doorTex = veneer(tex.ash, "brightness(1.62) saturate(0.2) contrast(0.82)", 1.2)
+  const oakDoorTex = veneer(tex.ash, "brightness(0.95) sepia(0.42) saturate(1.2) hue-rotate(-8deg)", 0.85)
   const mortarTex = mottled([128, 128, 125], 0.09, 26, 2.0, 11)
   const tileTex = mottled([200, 191, 174], 0.022, 10, 2.4, 23)
   const deckTex = deckTiles(tex.ash, "brightness(0.62) sepia(0.7) saturate(1.1)", 2.4)
@@ -608,7 +609,8 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
     "見切り_ステンレスHL": new MeshStandardMaterial({ color: lin(0.55, 0.55, 0.54), roughness: 0.35, metalness: 1 }),
     "建具_白杢": door,
     "建具_白杢_Y": door,
-    "開き戸_ホワイト": std(lin(0.88, 0.88, 0.87), 0.48),
+    "開き戸_オーク": std(lin(1, 1, 1), 0.48, { map: oakDoorTex }),
+    "寝具_ホワイト": std(lin(0.92, 0.91, 0.88), 0.92),
     "隣室_壁": std(lin(0.6, 0.6, 0.59), 0.9),
     "目地": std(lin(0.004, 0.004, 0.004), 0.9),
     "IH_ブラックガラス": std(lin(0.005, 0.005, 0.005), 0.08),
@@ -684,6 +686,7 @@ export function createMaterials(tex: TextureSet, opt: MaterialOptions): Material
       "ピアノ_木目": "vertical",
       "建具_白杢": "vertical",
       "建具_白杢_Y": "vertical",
+      "開き戸_オーク": "vertical",
       ...(opt.detail
         ? {
             "壁_クロス_ペールグレーN9.3": "plan",

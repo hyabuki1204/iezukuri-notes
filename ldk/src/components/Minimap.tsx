@@ -116,6 +116,9 @@ export function Minimap({ mode, pano, onPano, className }: Props) {
             r={[DATA.kids.x0, DATA.kids.x1, DATA.kids.swings[1].wy1, DATA.kids.y1]}
             className="fill-white/[0.03] stroke-white/35"
           />
+          {DATA.kids.closets?.map((c) => (
+            <Rect key={c.name} r={[c.x0, c.x1, c.y0, c.y1]} className="fill-amber-100/10 stroke-amber-100/40" />
+          ))}
           {DATA.kids.swings.map((d) => (
             <line
               key={d.name}
