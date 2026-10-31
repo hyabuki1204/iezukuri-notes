@@ -13,9 +13,10 @@ import {
   useOpenFromJump,
   useOpenSet,
 } from '../components/ui.tsx'
+import { moveToTrash } from '../lib/trash.ts'
+import { recordDecisionChange } from '../lib/history.ts'
 import { useData, type DecisionFilter } from '../app/DataProvider.tsx'
 import { dueUrgency } from '../lib/due.ts'
-import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
 import { firstOf, optionsFor, usesAreas } from '../lib/lists.ts'
@@ -119,30 +120,21 @@ export function DecisionsScreen() {
   }, [filtered, groupByArea, catFilter, data.lists.areas, data.lists.categories])
 
   function patch(id: string, partial: Partial<Decision>) {
-    update((current) => ({
-      ...current,
-      decisions: current.decisions.map((item) =>
-        item.id === id
-          ? { ...item, ...partial, updatedAt: nowIso() }
-          : item,
-      ),
-    }))
+    update((current) => {
+      const before = current.decisions.find((item) => item.id === id)
+      if (!before) return current
+      const after = { ...before, ...partial, updatedAt: nowIso() }
+      const next = {
+        ...current,
+        decisions: current.decisions.map((item) => (item.id === id ? after : item)),
+      }
+      return recordDecisionChange(next, before, after)
+    })
   }
 
   function remove(id: string) {
-    if (!window.confirm('この決定を削除しますか？')) return
-    const target = data.decisions.find((item) => item.id === id)
-    if (target) {
-      const remaining = {
-        ...data,
-        decisions: data.decisions.filter((item) => item.id !== id),
-      }
-      void removeAttachments(target.attachments, keepPaths(remaining))
-    }
-    update((current) => ({
-      ...current,
-      decisions: current.decisions.filter((item) => item.id !== id),
-    }))
+    if (!window.confirm('この決定をゴミ箱に移しますか？（30日間はメニューのゴミ箱から戻せます）')) return
+    update((current) => moveToTrash(current, 'decisions', id))
   }
 
   function addDraft() {
@@ -203,6 +195,8 @@ export function DecisionsScreen() {
         </label>
       ) : null}
 
+      <CostSummary items={filtered} />
+
       <button
         type="button"
         className="btn-ghost btn-wide mt-3 py-2.5"
@@ -248,7 +242,12 @@ export function DecisionsScreen() {
 
       {groups.map(([name, items]) => (
         <section key={name} className="mt-5">
-          <h2 className="section-title">{name}</h2>
+          <h2 className="section-title flex items-baseline justify-between gap-2">
+            <span>{name}</span>
+            {sumCost(items) > 0 ? (
+              <span className="font-normal">概算 {formatMan(sumCost(items))}</span>
+            ) : null}
+          </h2>
           <ul className="card-list mt-2">
             {items.map((item) => (
               <DecisionCard
@@ -368,7 +367,8 @@ function DecisionCard({
                 readOnly
                 onChange={(attachments) => onPatch({ attachments })}
               />
-              <p className="text-xs text-muted">最終更新 {item.updatedAt.slice(0, 10)}</p>
+              <DecisionHistory item={item} />
+              <p className="text-xs text-muted">最終更新 {formatAt(item.updatedAt)}</p>
             </>
           )}
         </div>
@@ -549,6 +549,100 @@ function DecisionFields({
           onChange={(attachments) => onChange({ ...value, attachments })}
         />
       </Disclosure>
+    </div>
+  )
+}
+
+function formatAt(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso.slice(0, 10)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function DecisionHistory({ item }: { item: Decision }) {
+  const { data } = useData()
+  const versions = data.history[item.id] ?? []
+  if (versions.length === 0) return null
+  return (
+    <Disclosure label={`変更履歴 ${versions.length}件（前の内容）`}>
+      <ol className="space-y-3">
+        {versions.map((version, index) => (
+          <li key={`${version.at}-${index}`} className="border-l-2 border-line pl-3">
+            <p className="text-xs text-muted">{formatAt(version.at)} 時点</p>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <StatusBadge status={version.status} />
+              {version.status >= 2 ? (
+                version.drawn ? <Tag tone="green">図面済</Tag> : <Tag tone="orange">図面未反映</Tag>
+              ) : null}
+              {version.cat !== item.cat ? <Tag>{version.cat}</Tag> : null}
+              {version.cost !== undefined ? <Tag>{version.cost}万円</Tag> : null}
+              {version.due ? <Tag>締切 {version.due}</Tag> : null}
+            </div>
+            {version.title !== item.title ? (
+              <p className="mt-1 text-[13px] font-bold text-ink">{version.title}</p>
+            ) : null}
+            {version.body.trim() ? (
+              <p className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-ink/80">
+                {version.body}
+              </p>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </Disclosure>
+  )
+}
+
+function sumCost(items: Decision[]): number {
+  return items.reduce((sum, item) => sum + (item.cost ?? 0), 0)
+}
+
+function formatMan(value: number): string {
+  return `${Math.round(value * 10) / 10}万円`
+}
+
+// 概算（万円）の合計。いま表示している決定が対象
+function CostSummary({ items }: { items: Decision[] }) {
+  const [open, setOpen] = useState(false)
+  const priced = items.filter((item) => item.cost !== undefined)
+  if (priced.length === 0) return null
+  const total = sumCost(priced)
+  const decided = sumCost(priced.filter((item) => item.status >= 2))
+  const groups = new Map<string, Decision[]>()
+  for (const item of priced) groups.set(item.cat, [...(groups.get(item.cat) ?? []), item])
+  const byCat = [...groups.entries()]
+    .map(([cat, list]) => [cat, sumCost(list), list.length] as const)
+    .toSorted((a, b) => b[1] - a[1])
+  return (
+    <div className="mt-3 rounded-sm border border-line bg-card">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <span>
+          <span className="block text-xs text-muted">概算の合計（{priced.length}件）</span>
+          <span className="block text-lg font-bold text-ink">{formatMan(total)}</span>
+        </span>
+        <span className="text-right text-xs text-muted">
+          うち確定 {formatMan(decided)}
+          <span aria-hidden className={`ml-2 inline-block transition-transform ${open ? 'rotate-180' : ''}`}>
+            ▾
+          </span>
+        </span>
+      </button>
+      {open ? (
+        <ul className="space-y-1.5 border-t border-line px-4 py-3">
+          {byCat.map(([cat, sum, count]) => (
+            <li key={cat} className="flex items-center gap-2 text-sm">
+              <span className="min-w-0 flex-1 truncate text-ink">{cat}</span>
+              <span className="text-xs text-muted">{count}件</span>
+              <span className="w-20 text-right font-bold text-ink tabular-nums">{formatMan(sum)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }

@@ -10,7 +10,7 @@ import {
   useOpenFromJump,
   useOpenSet,
 } from '../components/ui.tsx'
-import { keepPaths, removeAttachments } from '../lib/files.ts'
+import { moveToTrash } from '../lib/trash.ts'
 import { useData } from '../app/DataProvider.tsx'
 import { newId, nowIso, todayIsoDate } from '../lib/ids.ts'
 import {
@@ -99,16 +99,8 @@ export function MinutesScreen() {
   }
 
   function remove(minute: Minute) {
-    if (!window.confirm('この議事録を削除しますか？')) return
-    const remaining = {
-      ...data,
-      minutes: data.minutes.filter((item) => item.id !== minute.id),
-    }
-    void removeAttachments(minute.attachments, keepPaths(remaining))
-    update((current) => ({
-      ...current,
-      minutes: current.minutes.filter((item) => item.id !== minute.id),
-    }))
+    if (!window.confirm('この議事録をゴミ箱に移しますか？（30日間はメニューのゴミ箱から戻せます）')) return
+    update((current) => moveToTrash(current, 'minutes', minute.id))
   }
 
   async function copyLetter(minute: Minute) {

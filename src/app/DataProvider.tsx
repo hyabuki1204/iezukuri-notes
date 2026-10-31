@@ -17,7 +17,7 @@ import {
   clearUnsynced,
   hasUnsynced,
   markUnsynced,
-  mergeLocalIntoRemote,
+  resolveConnect,
 } from '../storage/unsynced.ts'
 
 export type Tab = 'decisions' | 'questions' | 'ideas' | 'minutes' | 'docs'
@@ -29,7 +29,7 @@ export type Jump = {
   filter?: DecisionFilter
   urgent?: boolean
   openId?: string
-  view?: 'questions' | 'todos'
+  view?: 'questions' | 'todos' | 'prep'
 }
 
 type DataContextValue = {
@@ -117,13 +117,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const remote = new SupabaseStore(HOUSEHOLD_ID)
       const loaded = await remote.load()
       const cached = latestRef.current
-      const next = isEmptyData(loaded)
-        ? isEmptyData(cached)
-          ? { ...seedData(), lists: cached.lists }
-          : cached
-        : hasUnsynced() && !isEmptyData(cached)
-          ? mergeLocalIntoRemote(loaded, cached)
-          : loaded
+      const next = resolveConnect(loaded, cached, hasUnsynced(), seedData)
       if (next !== loaded) await remote.save(next)
       clearUnsynced()
       setUnsynced(false)

@@ -3,8 +3,8 @@ import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { TextArea, TextField } from '../components/Field.tsx'
 import { WhoField, WhoStamp } from '../components/WhoField.tsx'
 import { DangerZone, EditBar, Tag, useOpenFromJump, useOpenSet } from '../components/ui.tsx'
+import { moveToTrash } from '../lib/trash.ts'
 import { useData } from '../app/DataProvider.tsx'
-import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
 import type { Attachment, Idea, Who } from '../storage/types.ts'
@@ -60,19 +60,8 @@ export function IdeasScreen() {
   }
 
   function remove(id: string) {
-    if (!window.confirm('このアイデアを削除しますか？')) return
-    const target = data.ideas.find((item) => item.id === id)
-    if (target) {
-      const remaining = {
-        ...data,
-        ideas: data.ideas.filter((item) => item.id !== id),
-      }
-      void removeAttachments(target.attachments, keepPaths(remaining))
-    }
-    update((current) => ({
-      ...current,
-      ideas: current.ideas.filter((item) => item.id !== id),
-    }))
+    if (!window.confirm('このアイデアをゴミ箱に移しますか？（30日間はメニューのゴミ箱から戻せます）')) return
+    update((current) => moveToTrash(current, 'ideas', id))
   }
 
   return (

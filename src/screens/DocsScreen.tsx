@@ -3,8 +3,8 @@ import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
 import { WhoField, WhoStamp } from '../components/WhoField.tsx'
 import { DangerZone, EditBar, ReadBlock, Tag, useOpenFromJump, useOpenSet } from '../components/ui.tsx'
+import { moveToTrash } from '../lib/trash.ts'
 import { useData } from '../app/DataProvider.tsx'
-import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
 import { DOC_KINDS, type Doc, type DocKind } from '../storage/types.ts'
@@ -67,16 +67,8 @@ export function DocsScreen() {
   }
 
   function remove(item: Doc) {
-    if (!window.confirm('この資料を削除しますか？')) return
-    const remaining = {
-      ...data,
-      docs: data.docs.filter((row) => row.id !== item.id),
-    }
-    void removeAttachments(item.attachments, keepPaths(remaining))
-    update((current) => ({
-      ...current,
-      docs: current.docs.filter((row) => row.id !== item.id),
-    }))
+    if (!window.confirm('この資料をゴミ箱に移しますか？（30日間はメニューのゴミ箱から戻せます）')) return
+    update((current) => moveToTrash(current, 'docs', item.id))
   }
 
   return (

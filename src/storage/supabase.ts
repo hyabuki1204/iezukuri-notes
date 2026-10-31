@@ -4,7 +4,9 @@ import type { Store } from './store.ts'
 import {
   asAttachments,
   asDocKind,
+  asHistory,
   asLists,
+  asTrash,
   asStringList,
   asWho,
   emptyAppData,
@@ -14,7 +16,6 @@ import {
   type Decision,
   type Doc,
   type Idea,
-  type Lists,
   type Minute,
   type Question,
   type Status,
@@ -58,7 +59,7 @@ type IdeaRow = {
   who?: string | null
 }
 
-type MinuteRow = {
+export type MinuteRow = {
   id: string
   household_id: string
   date: string
@@ -154,7 +155,7 @@ export class SupabaseStore implements Store {
       ideas: (ideas.data ?? []).map(rowToIdea),
       minutes: (minutes.data ?? []).map(rowToMinute),
       docs: docs.error ? [] : (docs.data ?? []).map(rowToDoc),
-      lists: asLists(house.error ? undefined : house.data?.lists),
+      ...householdExtras(house.error ? undefined : house.data?.lists),
     }
     this.snapshot = data
     return data
@@ -201,8 +202,8 @@ export class SupabaseStore implements Store {
       }),
       syncLists({
         householdId: hid,
-        next: data.lists,
-        prev: this.snapshot.lists,
+        next: data,
+        prev: this.snapshot,
         client,
       }),
     ])
@@ -383,7 +384,7 @@ function splitSentDecided(values: string[]): { sentDecided: string[]; doneTodos:
   }
 }
 
-function rowToMinute(row: MinuteRow): Minute {
+export function rowToMinute(row: MinuteRow): Minute {
   return {
     id: row.id,
     date: row.date,
@@ -401,7 +402,7 @@ function rowToMinute(row: MinuteRow): Minute {
   }
 }
 
-function minuteToRow(householdId: string, item: Minute): MinuteRow {
+export function minuteToRow(householdId: string, item: Minute): MinuteRow {
   return {
     id: item.id,
     household_id: householdId,
@@ -448,6 +449,17 @@ function docToRow(householdId: string, item: Doc): DocRow {
   }
 }
 
+// 分類リストに加えて、ゴミ箱と決定の変更履歴も households.lists (jsonb) に同居させる。
+// 表を変えずに済むようにするため。
+export function householdExtras(raw: unknown): Pick<AppData, 'lists' | 'trash' | 'history'> {
+  const row = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return {
+    lists: asLists(raw),
+    trash: asTrash(row._trash),
+    history: asHistory(row._history),
+  }
+}
+
 async function syncLists({
   householdId,
   next,
@@ -455,14 +467,20 @@ async function syncLists({
   client,
 }: {
   householdId: string
-  next: Lists
-  prev: Lists
+  next: AppData
+  prev: AppData
   client: ReturnType<typeof getSupabase>
 }): Promise<void> {
-  if (sameJson(next, prev)) return
+  if (
+    sameJson(next.lists, prev.lists) &&
+    sameJson(next.trash, prev.trash) &&
+    sameJson(next.history, prev.history)
+  ) {
+    return
+  }
   const { error } = await client
     .from('iezukuri_households')
-    .update({ lists: next })
+    .update({ lists: { ...next.lists, _trash: next.trash, _history: next.history } })
     .eq('id', householdId)
   if (error && !isMissingLists(error)) throw error
 }

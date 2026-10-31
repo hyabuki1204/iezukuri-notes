@@ -7,7 +7,13 @@ import { parseImportedJson } from '../storage/local.ts'
 import { SearchOverlay } from './SearchOverlay.tsx'
 import { NavTabs } from './NavTabs.tsx'
 
-export function Header({ onEditLists }: { onEditLists: () => void }) {
+export function Header({
+  onEditLists,
+  onOpenTrash,
+}: {
+  onEditLists: () => void
+  onOpenTrash: () => void
+}) {
   const { data, replace, cloud, cloudMessage, unsynced, retry, go } = useData()
   const stats = headerStats(data)
   const todoCount = openTodoCount(data)
@@ -132,6 +138,16 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
                   }}
                 >
                   分類を編集
+                </button>
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-sm text-ink"
+                  onClick={() => {
+                    setOpen(false)
+                    onOpenTrash()
+                  }}
+                >
+                  ゴミ箱{data.trash.length > 0 ? `（${data.trash.length}）` : ''}
                 </button>
                 <button
                   type="button"

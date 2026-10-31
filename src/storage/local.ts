@@ -2,7 +2,9 @@ import type { AppData } from './types.ts'
 import {
   asAttachments,
   asDocKind,
+  asHistory,
   asLists,
+  asTrash,
   asStringList,
   asTo,
   asWho,
@@ -57,6 +59,8 @@ function normalize(data: Partial<AppData>): AppData {
         }))
       : [],
     lists: asLists(data.lists),
+    trash: asTrash(data.trash),
+    history: asHistory(data.history),
   }
 }
 

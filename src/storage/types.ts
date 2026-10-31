@@ -98,6 +98,29 @@ export interface Lists {
   assignees: string[]
 }
 
+export type TrashKind = 'decisions' | 'questions' | 'ideas' | 'minutes' | 'docs'
+
+type TrashOf<K extends TrashKind, T> = { id: string; kind: K; item: T; deletedAt: string }
+
+export type TrashEntry =
+  | TrashOf<'decisions', Decision>
+  | TrashOf<'questions', Question>
+  | TrashOf<'ideas', Idea>
+  | TrashOf<'minutes', Minute>
+  | TrashOf<'docs', Doc>
+
+// 決定の変更前の版
+export interface DecisionVersion {
+  at: string
+  cat: string
+  title: string
+  body: string
+  status: Status
+  drawn: boolean
+  cost?: number
+  due?: string
+}
+
 export interface AppData {
   decisions: Decision[]
   questions: Question[]
@@ -105,6 +128,8 @@ export interface AppData {
   minutes: Minute[]
   docs: Doc[]
   lists: Lists
+  trash: TrashEntry[]
+  history: Record<string, DecisionVersion[]>
 }
 
 export const CATEGORIES = [
@@ -156,6 +181,8 @@ export function emptyAppData(): AppData {
     minutes: [],
     docs: [],
     lists: defaultLists(),
+    trash: [],
+    history: {},
   }
 }
 
@@ -219,8 +246,49 @@ export function asStringList(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string')
 }
 
+const TRASH_KINDS: TrashKind[] = ['decisions', 'questions', 'ideas', 'minutes', 'docs']
+
+export function asTrash(value: unknown): TrashEntry[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((raw) => {
+    if (!raw || typeof raw !== 'object') return []
+    const entry = raw as Partial<TrashEntry>
+    const item = entry.item as { id?: unknown; attachments?: unknown } | undefined
+    if (
+      typeof entry.id !== 'string' ||
+      !TRASH_KINDS.includes(entry.kind as TrashKind) ||
+      !item ||
+      typeof item.id !== 'string' ||
+      typeof entry.deletedAt !== 'string'
+    ) {
+      return []
+    }
+    return [
+      {
+        ...entry,
+        item: { ...item, attachments: asAttachments(item.attachments) },
+      } as TrashEntry,
+    ]
+  })
+}
+
+export function asHistory(value: unknown): Record<string, DecisionVersion[]> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const out: Record<string, DecisionVersion[]> = {}
+  for (const [id, list] of Object.entries(value as Record<string, unknown>)) {
+    if (!Array.isArray(list)) continue
+    const versions = list.filter(
+      (row): row is DecisionVersion =>
+        Boolean(row) && typeof row === 'object' && typeof (row as DecisionVersion).at === 'string',
+    )
+    if (versions.length > 0) out[id] = versions
+  }
+  return out
+}
+
 export function allAttachments(data: AppData): Attachment[] {
   return [
+    ...data.trash.flatMap((entry) => entry.item.attachments),
     ...data.decisions.flatMap((item) => item.attachments),
     ...data.questions.flatMap((item) => item.attachments),
     ...data.ideas.flatMap((item) => item.attachments),

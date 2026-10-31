@@ -10,10 +10,11 @@ import {
   useOpenFromJump,
   useOpenSet,
 } from '../components/ui.tsx'
+import { moveToTrash } from '../lib/trash.ts'
 import { useData } from '../app/DataProvider.tsx'
 import { TodosView } from '../components/Todos.tsx'
+import { PrepView } from '../components/Prep.tsx'
 import { openTodoCount } from '../lib/todos.ts'
-import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
 import { guessCategory } from '../lib/guessAllocate.ts'
@@ -25,7 +26,7 @@ export function QuestionsScreen() {
   const { openIds, setOpenIds, editingIds, toggle, toggleEdit } = useOpenSet()
   const [showDone, setShowDone] = useState(false)
   const [byAssignee, setByAssignee] = useState(true)
-  const [view, setView] = useState<'questions' | 'todos'>('questions')
+  const [view, setView] = useState<'questions' | 'todos' | 'prep'>('questions')
   const todoCount = openTodoCount(data)
   const { jump, consumeJump } = useData()
   useEffect(() => {
@@ -96,19 +97,8 @@ export function QuestionsScreen() {
   }
 
   function remove(id: string) {
-    if (!window.confirm('この質問を削除しますか？')) return
-    const target = data.questions.find((item) => item.id === id)
-    if (target) {
-      const remaining = {
-        ...data,
-        questions: data.questions.filter((item) => item.id !== id),
-      }
-      void removeAttachments(target.attachments, keepPaths(remaining))
-    }
-    update((current) => ({
-      ...current,
-      questions: current.questions.filter((item) => item.id !== id),
-    }))
+    if (!window.confirm('この質問をゴミ箱に移しますか？（30日間はメニューのゴミ箱から戻せます）')) return
+    update((current) => moveToTrash(current, 'questions', id))
   }
 
   function addDraft() {
@@ -177,11 +167,12 @@ export function QuestionsScreen() {
 
   return (
     <div className="page">
-      <div className="mb-3 grid grid-cols-2 rounded-sm border border-line bg-card p-1">
+      <div className="mb-3 grid grid-cols-3 rounded-sm border border-line bg-card p-1">
         {(
           [
             ['questions', '質問', openItems.length],
             ['todos', '宿題', todoCount],
+            ['prep', '次回準備', null],
           ] as const
         ).map(([id, label, count]) => (
           <button
@@ -191,11 +182,14 @@ export function QuestionsScreen() {
             onClick={() => setView(id)}
           >
             {label}
-            <span className={`ml-1 text-xs ${view === id ? 'text-card/80' : ''}`}>{count}</span>
+            {count !== null ? (
+              <span className={`ml-1 text-xs ${view === id ? 'text-card/80' : ''}`}>{count}</span>
+            ) : null}
           </button>
         ))}
       </div>
       {view === 'todos' ? <TodosView /> : null}
+      {view === 'prep' ? <PrepView /> : null}
       {view === 'questions' ? (
         <>
       <button

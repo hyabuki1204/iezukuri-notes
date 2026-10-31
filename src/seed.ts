@@ -132,6 +132,8 @@ export function seedData(): AppData {
     minutes: [],
     docs: [],
     lists: defaultLists(),
+    trash: [],
+    history: {},
   }
 }
 
