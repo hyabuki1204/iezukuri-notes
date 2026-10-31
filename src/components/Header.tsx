@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent } from 'react'
 import { useData } from '../app/DataProvider.tsx'
 import { dueUrgency } from '../lib/due.ts'
 import { headerStats } from '../lib/stats.ts'
+import { openTodoCount } from '../lib/todos.ts'
 import { parseImportedJson } from '../storage/local.ts'
 import { SearchOverlay } from './SearchOverlay.tsx'
 import { NavTabs } from './NavTabs.tsx'
@@ -9,6 +10,7 @@ import { NavTabs } from './NavTabs.tsx'
 export function Header({ onEditLists }: { onEditLists: () => void }) {
   const { data, replace, cloud, cloudMessage, unsynced, retry, go } = useData()
   const stats = headerStats(data)
+  const todoCount = openTodoCount(data)
   const urgentCount = data.decisions.filter((item) => dueUrgency(item.due)).length
   const [open, setOpen] = useState(false)
   const [searching, setSearching] = useState(false)
@@ -175,7 +177,7 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
       {searching ? <SearchOverlay onClose={() => setSearching(false)} /> : null}
 
       <section className="border-b border-line bg-card">
-        <dl className="mx-auto grid max-w-6xl grid-cols-3 gap-2 px-4 py-3 md:px-8">
+        <dl className="mx-auto grid max-w-6xl grid-cols-4 gap-2 px-4 py-3 md:px-8">
           <Stat
             label="未確定"
             value={stats.undecided}
@@ -192,7 +194,13 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
             label="未質問"
             value={stats.openQuestions}
             tone="text-purple"
-            onClick={() => go({ tab: 'questions' })}
+            onClick={() => go({ tab: 'questions', view: 'questions' })}
+          />
+          <Stat
+            label="宿題"
+            value={todoCount}
+            tone="text-green"
+            onClick={() => go({ tab: 'questions', view: 'todos' })}
           />
         </dl>
 

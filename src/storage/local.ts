@@ -43,6 +43,7 @@ function normalize(data: Partial<AppData>): AppData {
           attachments: asAttachments(minute.attachments),
           sentDecided: asStringList(minute.sentDecided),
           sentNewq: asStringList(minute.sentNewq),
+          doneTodos: asStringList(minute.doneTodos),
           who: asWho(minute.who),
         }))
       : [],

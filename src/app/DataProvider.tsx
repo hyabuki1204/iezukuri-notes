@@ -29,6 +29,7 @@ export type Jump = {
   filter?: DecisionFilter
   urgent?: boolean
   openId?: string
+  view?: 'questions' | 'todos'
 }
 
 type DataContextValue = {
@@ -229,7 +230,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const go = useCallback((intent: Jump) => {
     setTab(intent.tab)
-    if (intent.filter || intent.urgent || intent.openId) {
+    if (intent.filter || intent.urgent || intent.openId || intent.view) {
       setJump(intent)
     } else {
       setJump(null)

@@ -20,6 +20,8 @@ import {
 import { firstLine } from '../lib/preview.ts'
 import { plainFirstLine } from '../lib/rawText.ts'
 import { RawSection } from '../components/RawText.tsx'
+import { MinuteTodoList } from '../components/Todos.tsx'
+import { todosOf } from '../lib/todos.ts'
 import { guessArea, guessAssignee, guessCategory } from '../lib/guessAllocate.ts'
 import { usesAreas } from '../lib/lists.ts'
 import { formatMinuteLetter, linesOf } from '../lib/minuteText.ts'
@@ -43,6 +45,7 @@ function emptyMinute(): Minute {
     attachments: [],
     sentDecided: [],
     sentNewq: [],
+    doneTodos: [],
     who: '自分',
   }
 }
@@ -169,9 +172,18 @@ export function MinutesScreen() {
                       ) : null}
                       {FIELD_DEFS.some(([key]) => item[key].trim()) ? (
                         <div className="space-y-3 rounded-sm border border-line px-4 py-3">
-                          {FIELD_DEFS.map(([key, label]) => (
-                            <ReadBlock key={key} label={label} text={item[key]} />
-                          ))}
+                          {FIELD_DEFS.map(([key, label]) =>
+                            key === 'myTodo' || key === 'theirTodo' ? (
+                              <MinuteTodoList
+                                key={key}
+                                minute={item}
+                                kind={key === 'myTodo' ? 'my' : 'their'}
+                                label={label}
+                              />
+                            ) : (
+                              <ReadBlock key={key} label={label} text={item[key]} />
+                            ),
+                          )}
                         </div>
                       ) : (
                         <p className="text-[13px] text-muted">
@@ -205,7 +217,11 @@ export function MinutesScreen() {
 }
 
 function MinuteSummary({ item, open }: { item: Minute; open: boolean }) {
-  const counts = FIELD_DEFS.map(([key, label]) => [label, linesOf(item[key]).length] as const)
+  const counts = FIELD_DEFS.map(([key, label]) =>
+    key === 'myTodo' || key === 'theirTodo'
+      ? ([`${label} 残`, todosOf(item, key === 'myTodo' ? 'my' : 'their').filter((todo) => !todo.done).length] as const)
+      : ([label, linesOf(item[key]).length] as const),
+  )
   const unsent =
     linesOf(item.decided).filter((line) => !item.sentDecided.includes(line)).length +
     linesOf(item.newq).filter((line) => !item.sentNewq.includes(line)).length
@@ -225,7 +241,9 @@ function MinuteSummary({ item, open }: { item: Minute; open: boolean }) {
         {counts.map(([label, count]) =>
           count > 0 ? (
             <Tag key={label} tone={label === '新たな疑問' ? 'purple' : label === '決まったこと' ? 'green' : 'muted'}>
-              {label} {count}
+              {label}
+              {label.endsWith('残') ? '' : ' '}
+              {count}
             </Tag>
           ) : null,
         )}

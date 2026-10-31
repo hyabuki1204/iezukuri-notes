@@ -371,6 +371,18 @@ function ideaToRow(householdId: string, item: Idea): IdeaRow {
   }
 }
 
+// 済にした宿題は、表を変えずに保存するため sent_decided に印付きで同居させる
+const TODO_MARK = '\u0001todo\u0001'
+
+function splitSentDecided(values: string[]): { sentDecided: string[]; doneTodos: string[] } {
+  return {
+    sentDecided: values.filter((value) => !value.startsWith(TODO_MARK)),
+    doneTodos: values
+      .filter((value) => value.startsWith(TODO_MARK))
+      .map((value) => value.slice(TODO_MARK.length)),
+  }
+}
+
 function rowToMinute(row: MinuteRow): Minute {
   return {
     id: row.id,
@@ -384,7 +396,7 @@ function rowToMinute(row: MinuteRow): Minute {
     newq: row.newq,
     attachments: asAttachments(row.attachments),
     who: asWho(row.who),
-    sentDecided: asStringList(row.sent_decided),
+    ...splitSentDecided(asStringList(row.sent_decided)),
     sentNewq: asStringList(row.sent_newq),
   }
 }
@@ -403,7 +415,10 @@ function minuteToRow(householdId: string, item: Minute): MinuteRow {
     newq: item.newq,
     attachments: item.attachments ?? [],
     who: item.who,
-    sent_decided: item.sentDecided,
+    sent_decided: [
+      ...item.sentDecided,
+      ...item.doneTodos.map((key) => `${TODO_MARK}${key}`),
+    ],
     sent_newq: item.sentNewq,
   }
 }

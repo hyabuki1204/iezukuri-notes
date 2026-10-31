@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { Modal } from '../components/Modal.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
@@ -11,6 +11,8 @@ import {
   useOpenSet,
 } from '../components/ui.tsx'
 import { useData } from '../app/DataProvider.tsx'
+import { TodosView } from '../components/Todos.tsx'
+import { openTodoCount } from '../lib/todos.ts'
 import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
@@ -23,6 +25,15 @@ export function QuestionsScreen() {
   const { openIds, setOpenIds, editingIds, toggle, toggleEdit } = useOpenSet()
   const [showDone, setShowDone] = useState(false)
   const [byAssignee, setByAssignee] = useState(true)
+  const [view, setView] = useState<'questions' | 'todos'>('questions')
+  const todoCount = openTodoCount(data)
+  const { jump, consumeJump } = useData()
+  useEffect(() => {
+    if (jump?.tab === 'questions' && jump.view) {
+      setView(jump.view)
+      if (!jump.openId) consumeJump()
+    }
+  }, [jump, consumeJump])
   const [justDone, setJustDone] = useState<Question | null>(null)
   const toastTimer = useRef(0)
   const [adding, setAdding] = useState(false)
@@ -166,6 +177,27 @@ export function QuestionsScreen() {
 
   return (
     <div className="page">
+      <div className="mb-3 grid grid-cols-2 rounded-sm border border-line bg-card p-1">
+        {(
+          [
+            ['questions', '質問', openItems.length],
+            ['todos', '宿題', todoCount],
+          ] as const
+        ).map(([id, label, count]) => (
+          <button
+            key={id}
+            type="button"
+            className={`rounded-[9px] py-2 text-sm ${view === id ? 'bg-blue font-bold text-card' : 'text-muted'}`}
+            onClick={() => setView(id)}
+          >
+            {label}
+            <span className={`ml-1 text-xs ${view === id ? 'text-card/80' : ''}`}>{count}</span>
+          </button>
+        ))}
+      </div>
+      {view === 'todos' ? <TodosView /> : null}
+      {view === 'questions' ? (
+        <>
       <button
         type="button"
         className="btn-ghost btn-wide"
@@ -298,6 +330,8 @@ export function QuestionsScreen() {
         </ul>
       ) : null}
 
+        </>
+      ) : null}
       {promote ? (
         <Modal title="決定台帳へ送る" onClose={() => setPromote(null)}>
           <div className="space-y-3">

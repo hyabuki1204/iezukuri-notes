@@ -77,6 +77,8 @@ export interface Minute {
   attachments: Attachment[]
   sentDecided: string[]
   sentNewq: string[]
+  // 済にした宿題。'my:<行>' / 'their:<行>'
+  doneTodos: string[]
   who: Who
 }
 
