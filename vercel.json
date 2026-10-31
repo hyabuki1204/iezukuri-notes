@@ -3,5 +3,11 @@
     "api/extract-minute.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/keepalive",
+      "schedule": "17 18 * * *"
+    }
+  ]
 }
