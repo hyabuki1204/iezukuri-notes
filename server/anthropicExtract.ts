@@ -1,6 +1,6 @@
 import { parseExtractedJson, type ExtractedFields } from '../src/lib/extractMinute.ts'
 
-const MODEL = 'claude-sonnet-5'
+const MODEL = 'claude-sonnet-5-5'
 const MAX_RAW = 80_000
 
 const SYSTEM = `あなたは積水ハウスの打ち合わせ議事録を、家づくりメモの5欄に仕分ける係です。
@@ -38,7 +38,8 @@ export async function extractMinuteFromRaw(
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 4096,
-      thinking: { type: 'disabled' },
+      // Sonnet 5.5 は disabled が使えない。思考なしで速く返すには between_tools
+      thinking: { type: 'between_tools' },
       system: SYSTEM,
       messages: [
         {
@@ -52,6 +53,7 @@ export async function extractMinuteFromRaw(
   const payload = (await response.json()) as {
     error?: { message?: string }
     content?: { type: string; text?: string }[]
+    stop_reason?: string
   }
 
   if (!response.ok) {
@@ -59,6 +61,10 @@ export async function extractMinuteFromRaw(
       response.status >= 400 && response.status < 600 ? response.status : 502,
       payload.error?.message ?? 'Anthropicの応答に失敗しました。',
     )
+  }
+
+  if (payload.stop_reason === 'refusal') {
+    throw new ExtractError(422, 'AIがこの原文を処理できませんでした。内容の一部を削ってもう一度試してください。')
   }
 
   const textOut = payload.content

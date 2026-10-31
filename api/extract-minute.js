@@ -1,4 +1,4 @@
-const MODEL = 'claude-sonnet-5'
+const MODEL = 'claude-sonnet-5-5'
 const MAX_RAW = 80_000
 const KEYS = ['decided', 'myTodo', 'theirTodo', 'pending', 'newq']
 
@@ -67,7 +67,8 @@ async function extractMinuteFromRaw(raw, apiKey) {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 4096,
-      thinking: { type: 'disabled' },
+      // Sonnet 5.5 は disabled が使えない。思考なしで速く返すには between_tools
+      thinking: { type: 'between_tools' },
       system: SYSTEM,
       messages: [
         {
@@ -85,6 +86,14 @@ async function extractMinuteFromRaw(raw, apiKey) {
     )
     error.status =
       response.status >= 400 && response.status < 600 ? response.status : 502
+    throw error
+  }
+
+  if (payload.stop_reason === 'refusal') {
+    const error = new Error(
+      'AIがこの原文を処理できませんでした。内容の一部を削ってもう一度試してください。',
+    )
+    error.status = 422
     throw error
   }
 
