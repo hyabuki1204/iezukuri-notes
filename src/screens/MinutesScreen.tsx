@@ -9,6 +9,8 @@ import {
   type ExtractedFields,
 } from '../lib/extractMinute.ts'
 import { firstLine } from '../lib/preview.ts'
+import { plainFirstLine } from '../lib/rawText.ts'
+import { RawSection } from '../components/RawText.tsx'
 import { guessArea, guessAssignee, guessCategory } from '../lib/guessAllocate.ts'
 import { usesAreas } from '../lib/lists.ts'
 import { formatMinuteLetter, linesOf } from '../lib/minuteText.ts'
@@ -90,7 +92,7 @@ export function MinutesScreen() {
       </button>
       {adding ? (
         <article className="panel mt-3 md:max-w-2xl">
-          <MinuteFields value={draft} onChange={setDraft} />
+          <MinuteFields value={draft} onChange={setDraft} startEditing />
           <button
             type="button"
             className="btn btn-wide mt-3 bg-green text-card"
@@ -103,7 +105,9 @@ export function MinutesScreen() {
 
       <ul className="card-list">
         {data.minutes.map((item) => {
-          const preview = firstLine(item.decided || item.raw)
+          const preview = item.decided.trim()
+            ? firstLine(item.decided)
+            : plainFirstLine(item.raw)
           return (
             <li
               key={item.id}
@@ -153,9 +157,11 @@ export function MinutesScreen() {
 function MinuteFields({
   value,
   onChange,
+  startEditing = false,
 }: {
   value: Minute
   onChange: (next: Minute) => void
+  startEditing?: boolean
 }) {
   return (
     <div className="space-y-3">
@@ -176,10 +182,12 @@ function MinuteFields({
         value={value.who}
         onChange={(who) => onChange({ ...value, who })}
       />
-      <TextArea
-        label="原文（積水のAI議事録など）"
+      <RawSection
+        label="原文（AI議事録）"
+        title={[value.date, value.theme].filter(Boolean).join(' ') || '原文'}
         value={value.raw}
-        onChange={(event) => onChange({ ...value, raw: event.target.value })}
+        onChange={(raw) => onChange({ ...value, raw })}
+        startEditing={startEditing}
       />
       <ExtractButton value={value} onChange={onChange} />
       <p className="text-xs text-muted">
