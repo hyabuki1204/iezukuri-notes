@@ -13,6 +13,12 @@ import { HOUSEHOLD_ID, isSupabaseConfigured } from '../storage/config.ts'
 import { LocalStore } from '../storage/local.ts'
 import { SupabaseStore, ensureHousehold } from '../storage/supabase.ts'
 import { emptyAppData, type AppData } from '../storage/types.ts'
+import {
+  clearUnsynced,
+  hasUnsynced,
+  markUnsynced,
+  mergeLocalIntoRemote,
+} from '../storage/unsynced.ts'
 
 export type Tab = 'decisions' | 'questions' | 'ideas' | 'minutes' | 'docs'
 export type CloudStatus = 'local' | 'connected' | 'error'
@@ -22,6 +28,7 @@ export type Jump = {
   tab: Tab
   filter?: DecisionFilter
   urgent?: boolean
+  openId?: string
 }
 
 type DataContextValue = {
@@ -36,6 +43,8 @@ type DataContextValue = {
   replace: (data: AppData) => void
   cloud: CloudStatus
   cloudMessage: string | null
+  unsynced: boolean
+  retry: () => void
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -48,100 +57,156 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [jump, setJump] = useState<Jump | null>(null)
   const [cloud, setCloud] = useState<CloudStatus>('local')
   const [cloudMessage, setCloudMessage] = useState<string | null>(null)
+  const [unsynced, setUnsynced] = useState(hasUnsynced)
   const remoteRef = useRef<SupabaseStore | null>(null)
   const remoteTimer = useRef<number>(0)
+  const latestRef = useRef<AppData>(data)
+  const unsubscribeRef = useRef<() => void>(() => {})
+  const connectingRef = useRef(false)
 
-  const persistRemote = useCallback((next: AppData) => {
-    const remote = remoteRef.current
-    if (!remote) return
-    window.clearTimeout(remoteTimer.current)
-    remoteTimer.current = window.setTimeout(() => {
-      void remote.save(next).catch((error: unknown) => {
-        setCloud('error')
-        setCloudMessage(error instanceof Error ? error.message : '同期に失敗')
-      })
-    }, 400)
+  const failRemote = useCallback((error: unknown, fallback: string) => {
+    markUnsynced()
+    setUnsynced(true)
+    setCloud('error')
+    setCloudMessage(error instanceof Error ? error.message : fallback)
   }, [])
+
+  const saveRemote = useCallback(
+    (remote: SupabaseStore, next: AppData) => {
+      void remote
+        .save(next)
+        .then(() => {
+          if (latestRef.current === next) {
+            clearUnsynced()
+            setUnsynced(false)
+          }
+          setCloud('connected')
+          setCloudMessage(null)
+        })
+        .catch((error: unknown) => failRemote(error, '同期に失敗'))
+    },
+    [failRemote],
+  )
 
   const persist = useCallback(
     (next: AppData, immediate = false) => {
+      latestRef.current = next
       void local.save(next)
+      if (!isSupabaseConfigured()) return
+      markUnsynced()
+      setUnsynced(true)
+      const remote = remoteRef.current
+      if (!remote) return
+      window.clearTimeout(remoteTimer.current)
       if (immediate) {
-        window.clearTimeout(remoteTimer.current)
-        const remote = remoteRef.current
-        if (remote) {
-          void remote.save(next).catch((error: unknown) => {
-            setCloud('error')
-            setCloudMessage(
-              error instanceof Error ? error.message : '同期に失敗',
-            )
-          })
-        }
+        saveRemote(remote, next)
         return
       }
-      persistRemote(next)
+      remoteTimer.current = window.setTimeout(() => saveRemote(remote, next), 400)
     },
-    [persistRemote],
+    [saveRemote],
   )
 
-  useEffect(() => {
-    let unsubscribe = () => {}
-
-    async function boot() {
-      const cached = await local.load()
-      if (!isSupabaseConfigured()) {
-        const next = isEmptyData(cached)
+  // クラウドに繋ぐ。繋がらない間に端末で入力した分は、クラウドに重ねてから送る。
+  const connect = useCallback(async (): Promise<void> => {
+    if (!isSupabaseConfigured() || connectingRef.current) return
+    connectingRef.current = true
+    try {
+      await ensureHousehold(HOUSEHOLD_ID)
+      const remote = new SupabaseStore(HOUSEHOLD_ID)
+      const loaded = await remote.load()
+      const cached = latestRef.current
+      const next = isEmptyData(loaded)
+        ? isEmptyData(cached)
           ? { ...seedData(), lists: cached.lists }
           : cached
-        if (isEmptyData(cached)) await local.save(next)
-        setData(next)
+        : hasUnsynced() && !isEmptyData(cached)
+          ? mergeLocalIntoRemote(loaded, cached)
+          : loaded
+      if (next !== loaded) await remote.save(next)
+      clearUnsynced()
+      setUnsynced(false)
+      latestRef.current = next
+      setData(next)
+      await local.save(next)
+      unsubscribeRef.current()
+      remoteRef.current?.unsubscribe()
+      remoteRef.current = remote
+      try {
+        unsubscribeRef.current = remote.subscribe((incoming) => {
+          if (hasUnsynced()) return
+          latestRef.current = incoming
+          setData(incoming)
+          void local.save(incoming)
+        })
+      } catch {
+        unsubscribeRef.current = () => {}
+      }
+      setCloud('connected')
+      setCloudMessage(null)
+    } catch (error: unknown) {
+      setCloud('error')
+      setCloudMessage(
+        error instanceof Error ? error.message : 'クラウドに繋がらない',
+      )
+    } finally {
+      connectingRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    async function boot() {
+      const cached = await local.load()
+      const start = isEmptyData(cached)
+        ? { ...seedData(), lists: cached.lists }
+        : cached
+      if (isEmptyData(cached) && !isSupabaseConfigured()) await local.save(start)
+      if (!alive) return
+      latestRef.current = isSupabaseConfigured() ? cached : start
+      if (!isSupabaseConfigured()) {
+        setData(start)
         setCloud('local')
         setReady(true)
         return
       }
-
-      try {
-        await ensureHousehold(HOUSEHOLD_ID)
-        const remote = new SupabaseStore(HOUSEHOLD_ID)
-        const loaded = await remote.load()
-        const next = isEmptyData(loaded)
-          ? isEmptyData(cached)
-            ? { ...seedData(), lists: cached.lists }
-            : cached
-          : loaded
-        if (isEmptyData(loaded)) await remote.save(next)
-        setData(next)
-        await local.save(next)
-        remoteRef.current = remote
-        try {
-          unsubscribe = remote.subscribe((incoming) => {
-            setData(incoming)
-            void local.save(incoming)
-          })
-        } catch {
-          unsubscribe = () => {}
-        }
-        setCloud('connected')
-        setCloudMessage(null)
-      } catch (error: unknown) {
-        setData(
-          isEmptyData(cached) ? { ...seedData(), lists: cached.lists } : cached,
-        )
-        setCloud('error')
-        setCloudMessage(
-          error instanceof Error ? error.message : 'クラウドに繋がらない',
-        )
+      await connect()
+      if (!alive) return
+      // 繋がらなかった時は端末の内容で開く
+      if (!remoteRef.current) {
+        latestRef.current = start
+        setData(start)
       }
       setReady(true)
     }
-
     void boot()
     return () => {
-      unsubscribe()
+      alive = false
+      unsubscribeRef.current()
       remoteRef.current?.unsubscribe()
       window.clearTimeout(remoteTimer.current)
     }
-  }, [])
+  }, [connect])
+
+  // 繋がらない間は自動で繋ぎ直す（30秒ごと・画面に戻った時・電波が戻った時）
+  useEffect(() => {
+    if (cloud !== 'error') return
+    const retry = () => {
+      if (document.visibilityState === 'visible') void connect()
+    }
+    const timer = window.setInterval(retry, 30000)
+    window.addEventListener('online', retry)
+    document.addEventListener('visibilitychange', retry)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('online', retry)
+      document.removeEventListener('visibilitychange', retry)
+    }
+  }, [cloud, connect])
+
+  const retry = useCallback(() => {
+    void connect()
+  }, [connect])
 
   const update = useCallback(
     (fn: (current: AppData) => AppData) => {
@@ -164,7 +229,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const go = useCallback((intent: Jump) => {
     setTab(intent.tab)
-    if (intent.tab === 'decisions' && (intent.filter || intent.urgent)) {
+    if (intent.filter || intent.urgent || intent.openId) {
       setJump(intent)
     } else {
       setJump(null)
@@ -188,6 +253,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       replace,
       cloud,
       cloudMessage,
+      unsynced,
+      retry,
     }),
     [
       data,
@@ -200,6 +267,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       replace,
       cloud,
       cloudMessage,
+      unsynced,
+      retry,
     ],
   )
 

@@ -79,7 +79,7 @@
   }
 
   .chip {
-    @apply rounded-full border border-line bg-card px-3 py-1 text-xs text-muted;
+    @apply shrink-0 whitespace-nowrap rounded-full border border-line bg-card px-3 py-1.5 text-sm text-muted;
   }
 
   .chip-on {
@@ -87,7 +87,7 @@
   }
 
   .section-title {
-    @apply text-xs font-medium text-muted;
+    @apply text-[13px] font-bold text-muted;
   }
 
   .note-card {

@@ -1,7 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { TextArea, TextField } from '../components/Field.tsx'
 import { WhoField, WhoStamp } from '../components/WhoField.tsx'
+import {
+  DangerZone,
+  EditBar,
+  ReadBlock,
+  Tag,
+  useOpenFromJump,
+  useOpenSet,
+} from '../components/ui.tsx'
+import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { useData } from '../app/DataProvider.tsx'
 import { newId, nowIso, todayIsoDate } from '../lib/ids.ts'
 import {
@@ -38,21 +47,33 @@ function emptyMinute(): Minute {
   }
 }
 
+const FIELD_DEFS = [
+  ['decided', '決まったこと'],
+  ['myTodo', '自分の宿題'],
+  ['theirTodo', '先方の宿題'],
+  ['pending', '保留'],
+  ['newq', '新たな疑問'],
+] as const
+
 export function MinutesScreen() {
   const { data, update } = useData()
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const { openIds, setOpenIds, editingIds, toggle, toggleEdit } = useOpenSet()
   const [adding, setAdding] = useState(false)
-  const [draft, setDraft] = useState<Minute>(emptyMinute)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const openOne = useCallback(
+    (id: string) => setOpenIds((current) => new Set(current).add(id)),
+    [setOpenIds],
+  )
+  useOpenFromJump('minutes', openOne)
 
-  function toggle(id: string) {
-    setOpenIds((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+  const sorted = useMemo(
+    () =>
+      data.minutes
+        .map((item, index) => ({ item, index }))
+        .toSorted((a, b) => b.item.date.localeCompare(a.item.date) || a.index - b.index)
+        .map(({ item }) => item),
+    [data.minutes],
+  )
 
   function patch(id: string, next: Minute) {
     update((current) => ({
@@ -61,16 +82,30 @@ export function MinutesScreen() {
     }))
   }
 
-  function saveDraft() {
-    if (!draft.theme.trim() && !draft.raw.trim() && !draft.decided.trim()) return
-    const saved = { ...draft, theme: draft.theme.trim() }
+  function save(minute: Minute) {
+    const saved = { ...minute, theme: minute.theme.trim() }
     update((current) => ({
       ...current,
       minutes: [saved, ...current.minutes],
     }))
     setAdding(false)
-    setDraft(emptyMinute())
     setOpenIds((current) => new Set(current).add(saved.id))
+    window.setTimeout(() => {
+      document.getElementById(`item-${saved.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+  }
+
+  function remove(minute: Minute) {
+    if (!window.confirm('この議事録を削除しますか？')) return
+    const remaining = {
+      ...data,
+      minutes: data.minutes.filter((item) => item.id !== minute.id),
+    }
+    void removeAttachments(minute.attachments, keepPaths(remaining))
+    update((current) => ({
+      ...current,
+      minutes: current.minutes.filter((item) => item.id !== minute.id),
+    }))
   }
 
   async function copyLetter(minute: Minute) {
@@ -80,70 +115,85 @@ export function MinutesScreen() {
 
   return (
     <div className="page">
-      <button
-        type="button"
-        className="btn-ghost btn-wide"
-        onClick={() => {
-          setDraft(emptyMinute())
-          setAdding((value) => !value)
-        }}
-      >
-        {adding ? '作成を閉じる' : '＋ 議事録を追加'}
-      </button>
       {adding ? (
-        <article className="panel mt-3 md:max-w-2xl">
-          <MinuteFields value={draft} onChange={setDraft} startEditing />
-          <button
-            type="button"
-            className="btn btn-wide mt-3 bg-green text-card"
-            onClick={saveDraft}
-          >
-            保存する
-          </button>
-        </article>
-      ) : null}
+        <NewMinute onCancel={() => setAdding(false)} onSave={save} />
+      ) : (
+        <button
+          type="button"
+          className="btn-ghost btn-wide py-2.5"
+          onClick={() => setAdding(true)}
+        >
+          ＋ 議事録を追加
+        </button>
+      )}
 
       <ul className="card-list">
-        {data.minutes.map((item) => {
-          const preview = item.decided.trim()
-            ? firstLine(item.decided)
-            : plainFirstLine(item.raw)
+        {sorted.map((item) => {
+          const open = openIds.has(item.id)
+          const editing = editingIds.has(item.id)
           return (
             <li
               key={item.id}
-              className={`note-card ${openIds.has(item.id) ? 'md:col-span-2' : ''}`}
+              id={`item-${item.id}`}
+              className={`note-card scroll-mt-24 ${open ? 'md:col-span-2' : ''}`}
             >
               <button
                 type="button"
-                className="w-full px-3 py-3 text-left"
+                className="block w-full px-4 py-3 text-left"
                 onClick={() => toggle(item.id)}
+                aria-expanded={open}
               >
-                <span className="flex items-start justify-between gap-3">
-                  <span className="block text-sm text-ink">
-                    {item.theme || '（テーマなし）'}
-                  </span>
-                  <WhoStamp who={item.who} />
-                </span>
-                <span className="mt-0.5 block text-xs text-muted">{item.date}</span>
-                {preview ? (
-                  <span className="mt-0.5 block text-xs text-muted">{preview}</span>
-                ) : null}
-                <AttachmentHint files={item.attachments} />
+                <MinuteSummary item={item} open={open} />
               </button>
-              {openIds.has(item.id) ? (
-                <div className="border-t border-line px-3 py-3">
-                  <MinuteFields
-                    value={item}
-                    onChange={(next) => patch(item.id, next)}
-                  />
-                  <button
-                    type="button"
-                    className="btn-ghost btn-wide mt-3"
-                    onClick={() => void copyLetter(item)}
-                  >
-                    {copiedId === item.id ? 'コピーした' : '担当者へ送る文面'}
-                  </button>
-                  <AllocateBlock value={item} />
+              {open ? (
+                <div className="space-y-4 border-t border-line px-4 py-3">
+                  <EditBar editing={editing} onToggle={() => toggleEdit(item.id)}>
+                    <span className="text-[13px] text-muted">
+                      {editing ? '変更はその場で保存されます' : ''}
+                    </span>
+                  </EditBar>
+                  {editing ? (
+                    <>
+                      <MinuteFields value={item} onChange={(next) => patch(item.id, next)} />
+                      <DangerZone onRemove={() => remove(item)} label="この議事録を削除" />
+                    </>
+                  ) : (
+                    <>
+                      {item.raw.trim() ? (
+                        <RawSection
+                          label="原文（AI議事録）"
+                          title={[item.date, item.theme].filter(Boolean).join(' ') || '原文'}
+                          value={item.raw}
+                          onChange={(raw) => patch(item.id, { ...item, raw })}
+                        />
+                      ) : null}
+                      {FIELD_DEFS.some(([key]) => item[key].trim()) ? (
+                        <div className="space-y-3 rounded-sm border border-line px-4 py-3">
+                          {FIELD_DEFS.map(([key, label]) => (
+                            <ReadBlock key={key} label={label} text={item[key]} />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[13px] text-muted">
+                          5項目はまだ空です。「編集」から原文の抽出ができます。
+                        </p>
+                      )}
+                      <Attachments
+                        files={item.attachments}
+                        ownerId={item.id}
+                        readOnly
+                        onChange={(attachments) => patch(item.id, { ...item, attachments })}
+                      />
+                      <button
+                        type="button"
+                        className="btn-ghost btn-wide"
+                        onClick={() => void copyLetter(item)}
+                      >
+                        {copiedId === item.id ? 'コピーした' : '担当者へ送る文面をコピー'}
+                      </button>
+                      <AllocateBlock value={item} />
+                    </>
+                  )}
                 </div>
               ) : null}
             </li>
@@ -154,14 +204,174 @@ export function MinutesScreen() {
   )
 }
 
+function MinuteSummary({ item, open }: { item: Minute; open: boolean }) {
+  const counts = FIELD_DEFS.map(([key, label]) => [label, linesOf(item[key]).length] as const)
+  const unsent =
+    linesOf(item.decided).filter((line) => !item.sentDecided.includes(line)).length +
+    linesOf(item.newq).filter((line) => !item.sentNewq.includes(line)).length
+  const preview = item.decided.trim() ? firstLine(item.decided, 60) : plainFirstLine(item.raw, 60)
+  return (
+    <>
+      <span className="flex items-start gap-2">
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-bold leading-snug text-ink">
+            {item.theme || '（テーマなし）'}
+          </span>
+          <span className="mt-0.5 block text-[13px] text-muted">{item.date}</span>
+        </span>
+        <WhoStamp who={item.who} />
+      </span>
+      <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        {counts.map(([label, count]) =>
+          count > 0 ? (
+            <Tag key={label} tone={label === '新たな疑問' ? 'purple' : label === '決まったこと' ? 'green' : 'muted'}>
+              {label} {count}
+            </Tag>
+          ) : null,
+        )}
+        {unsent > 0 ? <Tag tone="orange">台帳へ未送り {unsent}</Tag> : null}
+        {item.raw.trim() ? <Tag tone="blue">原文あり</Tag> : null}
+      </span>
+      {!open && preview ? (
+        <span className="mt-1.5 block text-[13px] leading-snug text-ink/70">{preview}</span>
+      ) : null}
+      {!open ? <AttachmentHint files={item.attachments} /> : null}
+    </>
+  )
+}
+
+// 新規作成：① 日付・テーマ・原文 → ② 5項目を確認して保存
+function NewMinute({
+  onCancel,
+  onSave,
+}: {
+  onCancel: () => void
+  onSave: (minute: Minute) => void
+}) {
+  const [draft, setDraft] = useState<Minute>(emptyMinute)
+  const [step, setStep] = useState<1 | 2>(1)
+  const { busy, message, run } = useExtract()
+
+  async function extractAndNext() {
+    const fields = await run(draft)
+    if (fields) {
+      setDraft((current) => ({ ...current, ...fields }))
+      setStep(2)
+    }
+  }
+
+  const canSave = Boolean(draft.theme.trim() || draft.raw.trim() || draft.decided.trim())
+
+  return (
+    <article className="panel md:max-w-2xl">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <ol className="flex items-center gap-2 text-[13px]">
+          {(
+            [
+              [1, '原文を貼る'],
+              [2, '5項目を確認'],
+            ] as const
+          ).map(([n, label]) => (
+            <li
+              key={n}
+              className={`flex items-center gap-1.5 ${step === n ? 'font-bold text-blue' : 'text-muted'}`}
+            >
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
+                  step === n ? 'bg-blue text-card' : 'bg-paper text-muted'
+                }`}
+              >
+                {n}
+              </span>
+              {label}
+            </li>
+          ))}
+        </ol>
+        <button type="button" className="text-sm text-muted" onClick={onCancel}>
+          やめる
+        </button>
+      </div>
+
+      {step === 1 ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <TextField
+              label="日付"
+              type="date"
+              value={draft.date}
+              onChange={(event) => setDraft({ ...draft, date: event.target.value })}
+            />
+            <TextField
+              label="テーマ"
+              value={draft.theme}
+              placeholder="例：外構の打ち合わせ"
+              onChange={(event) => setDraft({ ...draft, theme: event.target.value })}
+            />
+          </div>
+          <WhoField value={draft.who} onChange={(who) => setDraft({ ...draft, who })} />
+          <RawSection
+            label="原文（AI議事録）"
+            title={[draft.date, draft.theme].filter(Boolean).join(' ') || '原文'}
+            value={draft.raw}
+            onChange={(raw) => setDraft({ ...draft, raw })}
+            startEditing
+          />
+          <button
+            type="button"
+            className="btn-primary btn-wide disabled:opacity-40"
+            disabled={busy || !draft.raw.trim()}
+            onClick={() => void extractAndNext()}
+          >
+            {busy ? '抽出中…' : '原文から5項目を抽出して次へ'}
+          </button>
+          {message ? <p className="text-[13px] text-timber">{message}</p> : null}
+          <button type="button" className="btn-ghost btn-wide" onClick={() => setStep(2)}>
+            抽出せずに自分で書く
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-[13px] text-muted">
+            {draft.theme || '（テーマなし）'}・{draft.date}。1行に1件で書くと、あとで台帳へ振り分けられます。
+          </p>
+          {FIELD_DEFS.map(([key, label]) => (
+            <TextArea
+              key={key}
+              label={label}
+              value={draft[key]}
+              onChange={(event) => setDraft({ ...draft, [key]: event.target.value })}
+            />
+          ))}
+          <Attachments
+            files={draft.attachments}
+            ownerId={draft.id}
+            onChange={(attachments) => setDraft({ ...draft, attachments })}
+          />
+          <div className="grid grid-cols-[auto_1fr] gap-2">
+            <button type="button" className="btn-ghost" onClick={() => setStep(1)}>
+              戻る
+            </button>
+            <button
+              type="button"
+              className="btn bg-green text-card disabled:opacity-40"
+              disabled={!canSave}
+              onClick={() => onSave(draft)}
+            >
+              保存する
+            </button>
+          </div>
+        </div>
+      )}
+    </article>
+  )
+}
+
 function MinuteFields({
   value,
   onChange,
-  startEditing = false,
 }: {
   value: Minute
   onChange: (next: Minute) => void
-  startEditing?: boolean
 }) {
   return (
     <div className="space-y-3">
@@ -187,39 +397,16 @@ function MinuteFields({
         title={[value.date, value.theme].filter(Boolean).join(' ') || '原文'}
         value={value.raw}
         onChange={(raw) => onChange({ ...value, raw })}
-        startEditing={startEditing}
       />
       <ExtractButton value={value} onChange={onChange} />
-      <p className="text-xs text-muted">
-        抽出したあとも、5項目は手で直せます。同じ画面で台帳へ振り分けられます。
-      </p>
-      <TextArea
-        label="決まったこと"
-        value={value.decided}
-        onChange={(event) => onChange({ ...value, decided: event.target.value })}
-      />
-      <TextArea
-        label="自分の宿題"
-        value={value.myTodo}
-        onChange={(event) => onChange({ ...value, myTodo: event.target.value })}
-      />
-      <TextArea
-        label="先方の宿題"
-        value={value.theirTodo}
-        onChange={(event) =>
-          onChange({ ...value, theirTodo: event.target.value })
-        }
-      />
-      <TextArea
-        label="保留"
-        value={value.pending}
-        onChange={(event) => onChange({ ...value, pending: event.target.value })}
-      />
-      <TextArea
-        label="新たな疑問"
-        value={value.newq}
-        onChange={(event) => onChange({ ...value, newq: event.target.value })}
-      />
+      {FIELD_DEFS.map(([key, label]) => (
+        <TextArea
+          key={key}
+          label={label}
+          value={value[key]}
+          onChange={(event) => onChange({ ...value, [key]: event.target.value })}
+        />
+      ))}
       <Attachments
         files={value.attachments}
         ownerId={value.id}
@@ -229,26 +416,14 @@ function MinuteFields({
   )
 }
 
-function ExtractButton({
-  value,
-  onChange,
-}: {
-  value: Minute
-  onChange: (next: Minute) => void
-}) {
+function useExtract() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
-  async function extract() {
+  async function run(value: Minute): Promise<ExtractedFields | null> {
     if (!value.raw.trim()) {
       setMessage('原文を貼ってください。')
-      return
-    }
-    if (
-      extractedFieldsHaveContent(value) &&
-      !window.confirm('5項目を原文からの抽出で置き換えます。よろしいですか？')
-    ) {
-      return
+      return null
     }
     setBusy(true)
     setMessage(null)
@@ -265,12 +440,38 @@ function ExtractButton({
       if (!response.ok || !payload.fields) {
         throw new Error(payload.error ?? '抽出に失敗しました。')
       }
-      onChange({ ...value, ...payload.fields })
-      setMessage('抽出しました。内容を確認して直してください。')
+      return payload.fields
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '抽出に失敗しました。')
+      return null
     } finally {
       setBusy(false)
+    }
+  }
+
+  return { busy, message, setMessage, run }
+}
+
+function ExtractButton({
+  value,
+  onChange,
+}: {
+  value: Minute
+  onChange: (next: Minute) => void
+}) {
+  const { busy, message, setMessage, run } = useExtract()
+
+  async function extract() {
+    if (
+      extractedFieldsHaveContent(value) &&
+      !window.confirm('5項目を原文からの抽出で置き換えます。よろしいですか？')
+    ) {
+      return
+    }
+    const fields = await run(value)
+    if (fields) {
+      onChange({ ...value, ...fields })
+      setMessage('抽出しました。内容を確認して直してください。')
     }
   }
 
@@ -282,9 +483,9 @@ function ExtractButton({
         disabled={busy}
         onClick={() => void extract()}
       >
-        {busy ? '抽出中…' : '原文から抽出'}
+        {busy ? '抽出中…' : '原文から5項目を抽出'}
       </button>
-      {message ? <p className="mt-2 text-xs text-muted">{message}</p> : null}
+      {message ? <p className="mt-2 text-[13px] text-muted">{message}</p> : null}
     </div>
   )
 }

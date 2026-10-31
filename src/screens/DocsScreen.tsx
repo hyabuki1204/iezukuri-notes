@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
 import { WhoField, WhoStamp } from '../components/WhoField.tsx'
+import { DangerZone, EditBar, ReadBlock, Tag, useOpenFromJump, useOpenSet } from '../components/ui.tsx'
 import { useData } from '../app/DataProvider.tsx'
 import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
@@ -23,22 +24,21 @@ function emptyDoc(): Doc {
 export function DocsScreen() {
   const { data, update } = useData()
   const [kindFilter, setKindFilter] = useState<DocKind | 'all'>('all')
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const { openIds, setOpenIds, editingIds, toggle, toggleEdit } = useOpenSet()
+  const openOne = useCallback(
+    (id: string) => {
+      setKindFilter('all')
+      setOpenIds((current) => new Set(current).add(id))
+    },
+    [setOpenIds],
+  )
+  useOpenFromJump('docs', openOne)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState<Doc>(emptyDoc)
 
   const items = data.docs.filter(
     (item) => kindFilter === 'all' || item.kind === kindFilter,
   )
-
-  function toggle(id: string) {
-    setOpenIds((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   function patch(id: string, partial: Partial<Doc>) {
     update((current) => ({
@@ -81,7 +81,7 @@ export function DocsScreen() {
 
   return (
     <div className="page">
-      <p className="mb-3 text-sm text-muted">
+      <p className="mb-3 text-[13px] text-muted">
         図面・見積・以前の打ち合わせ資料はここに置きます。各メモにも写真とPDFを付けられます。
       </p>
       <div className="flex flex-wrap gap-2">
@@ -105,7 +105,7 @@ export function DocsScreen() {
       </div>
       <button
         type="button"
-        className="btn-ghost btn-wide mt-4"
+        className="btn-ghost btn-wide mt-3 py-2.5"
         onClick={() => {
           setDraft(emptyDoc())
           setAdding((value) => !value)
@@ -123,45 +123,62 @@ export function DocsScreen() {
       ) : null}
 
       <ul className="card-list">
-        {items.map((item) => (
-          <li
-            key={item.id}
-            className={`note-card ${openIds.has(item.id) ? 'md:col-span-2' : ''}`}
-          >
-            <button
-              type="button"
-              className="w-full px-3 py-3 text-left"
-              onClick={() => toggle(item.id)}
+        {items.map((item) => {
+          const open = openIds.has(item.id)
+          const editing = editingIds.has(item.id)
+          return (
+            <li
+              key={item.id}
+              id={`item-${item.id}`}
+              className={`note-card scroll-mt-24 ${open ? 'md:col-span-2' : ''}`}
             >
-              <span className="flex items-start justify-between gap-3">
-                <span className="block text-sm text-ink">{item.title}</span>
-                <WhoStamp who={item.who} />
-              </span>
-              <span className="mt-0.5 block text-xs text-muted">{item.kind}</span>
-              {item.note ? (
-                <span className="mt-0.5 block text-xs text-muted">
-                  {firstLine(item.note)}
+              <button
+                type="button"
+                className="block w-full px-4 py-3 text-left"
+                onClick={() => toggle(item.id)}
+                aria-expanded={open}
+              >
+                <span className="flex items-start gap-2">
+                  <span className="min-w-0 flex-1 text-[15px] font-bold leading-snug text-ink">
+                    {item.title}
+                  </span>
+                  <WhoStamp who={item.who} />
                 </span>
+                <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <Tag tone="blue">{item.kind}</Tag>
+                  <span className="text-xs text-muted">{item.createdAt.slice(0, 10)}</span>
+                </span>
+                {!open && item.note ? (
+                  <span className="mt-1.5 block text-[13px] leading-snug text-ink/70">
+                    {firstLine(item.note, 60)}
+                  </span>
+                ) : null}
+                {!open ? <AttachmentHint files={item.attachments} /> : null}
+              </button>
+              {open ? (
+                <div className="space-y-3 border-t border-line px-4 py-3">
+                  <EditBar editing={editing} onToggle={() => toggleEdit(item.id)} />
+                  {editing ? (
+                    <>
+                      <DocFields value={item} onChange={(next) => patch(item.id, next)} />
+                      <DangerZone onRemove={() => remove(item)} label="この資料を削除" />
+                    </>
+                  ) : (
+                    <>
+                      <ReadBlock label="メモ" text={item.note} />
+                      <Attachments
+                        files={item.attachments}
+                        ownerId={item.id}
+                        readOnly
+                        onChange={(attachments) => patch(item.id, { attachments })}
+                      />
+                    </>
+                  )}
+                </div>
               ) : null}
-              <AttachmentHint files={item.attachments} />
-            </button>
-            {openIds.has(item.id) ? (
-              <div className="space-y-3 border-t border-line px-3 py-3">
-                <DocFields
-                  value={item}
-                  onChange={(next) => patch(item.id, next)}
-                />
-                <button
-                  type="button"
-                  className="text-sm text-timber"
-                  onClick={() => remove(item)}
-                >
-                  削除
-                </button>
-              </div>
-            ) : null}
-          </li>
-        ))}
+            </li>
+          )
+        })}
       </ul>
     </div>
   )

@@ -18,10 +18,12 @@ export function Attachments({
   files,
   ownerId,
   onChange,
+  readOnly = false,
 }: {
   files: Attachment[]
   ownerId: string
   onChange: (next: Attachment[]) => void
+  readOnly?: boolean
 }) {
   const { data } = useData()
   const cameraRef = useRef<HTMLInputElement>(null)
@@ -74,9 +76,11 @@ export function Attachments({
     setPickingDoc(false)
   }
 
+  if (readOnly && files.length === 0) return null
+
   return (
     <div>
-      <p className="mb-1 text-xs text-muted">写真・PDF</p>
+      <p className="mb-1 text-[13px] text-muted">写真・PDF</p>
       {files.length > 0 ? (
         <ul className="mb-2 grid grid-cols-2 gap-2">
           {files.map((file) => (
@@ -89,19 +93,23 @@ export function Attachments({
                 <Thumb file={file} />
                 <span className="block truncate px-2 py-1 text-xs text-ink">{file.name}</span>
               </button>
-              <button
-                type="button"
-                className="px-2 pb-2 text-xs text-timber"
-                onClick={() => void onRemove(file)}
-              >
-                削除
-              </button>
+              {readOnly ? null : (
+                <button
+                  type="button"
+                  className="px-2 pb-2 text-xs text-timber"
+                  onClick={() => void onRemove(file)}
+                >
+                  削除
+                </button>
+              )}
             </li>
           ))}
         </ul>
       ) : (
         <p className="mb-2 text-xs text-muted">まだありません</p>
       )}
+      {readOnly ? null : (
+        <>
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
@@ -130,6 +138,8 @@ export function Attachments({
           資料から選ぶ
         </button>
       ) : null}
+        </>
+      )}
       <input
         ref={cameraRef}
         type="file"

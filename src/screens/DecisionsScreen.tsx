@@ -1,7 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
 import { WhoField, WhoStamp } from '../components/WhoField.tsx'
+import {
+  DangerZone,
+  Disclosure,
+  EditBar,
+  ReadBlock,
+  STATUS_BUTTON_ON,
+  StatusBadge,
+  Tag,
+  useOpenFromJump,
+  useOpenSet,
+} from '../components/ui.tsx'
 import { useData, type DecisionFilter } from '../app/DataProvider.tsx'
 import { dueUrgency } from '../lib/due.ts'
 import { keepPaths, removeAttachments } from '../lib/files.ts'
@@ -9,7 +20,6 @@ import { newId, nowIso } from '../lib/ids.ts'
 import { firstLine } from '../lib/preview.ts'
 import { firstOf, optionsFor, usesAreas } from '../lib/lists.ts'
 import {
-  STATUS_BORDER,
   STATUS_LABEL,
   type Decision,
   type Status,
@@ -34,12 +44,21 @@ export function DecisionsScreen() {
   const [statusFilter, setStatusFilter] = useState<DecisionFilter>('all')
   const [catFilter, setCatFilter] = useState<string>('all')
   const [groupByArea, setGroupByArea] = useState(false)
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const { openIds, setOpenIds, editingIds, toggle, toggleEdit } = useOpenSet()
+  const openOne = useCallback(
+    (id: string) => {
+      setStatusFilter('all')
+      setCatFilter('all')
+      setOpenIds((current) => new Set(current).add(id))
+    },
+    [setOpenIds],
+  )
+  useOpenFromJump('decisions', openOne)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState<Decision>(emptyDraft)
 
   useEffect(() => {
-    if (!jump || jump.tab !== 'decisions') return
+    if (!jump || jump.tab !== 'decisions' || jump.openId) return
     if (jump.urgent) {
       setStatusFilter('all')
       setCatFilter('all')
@@ -99,15 +118,6 @@ export function DecisionsScreen() {
     }
   }, [filtered, groupByArea, catFilter, data.lists.areas, data.lists.categories])
 
-  function toggle(id: string) {
-    setOpenIds((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
   function patch(id: string, partial: Partial<Decision>) {
     update((current) => ({
       ...current,
@@ -147,7 +157,7 @@ export function DecisionsScreen() {
 
   return (
     <div className="page">
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
         {(
           [
             ['all', 'すべて'],
@@ -163,15 +173,15 @@ export function DecisionsScreen() {
             {label}
           </Chip>
         ))}
-      </div>
-      <label className="mt-3 block md:max-w-xs">
-        <span className="mb-1 block text-xs text-muted">大分類</span>
         <select
-          className="w-full rounded-sm border border-line bg-paper px-3 py-2.5 text-sm"
+          aria-label="大分類"
+          className={`shrink-0 rounded-full border py-1.5 pr-6 pl-3 text-sm ${
+            catFilter === 'all' ? 'border-line bg-card text-muted' : 'border-blue bg-soft-blue text-blue'
+          }`}
           value={catFilter}
           onChange={(event) => setCatFilter(event.target.value)}
         >
-          <option value="all">すべて</option>
+          <option value="all">大分類</option>
           {optionsFor(
             data.lists.categories,
             catFilter === 'all' ? undefined : catFilter,
@@ -181,9 +191,9 @@ export function DecisionsScreen() {
             </option>
           ))}
         </select>
-      </label>
+      </div>
       {usesAreas(catFilter) ? (
-        <label className="mt-3 flex items-center gap-2 text-sm text-ink">
+        <label className="mt-2 flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
             checked={groupByArea}
@@ -195,7 +205,7 @@ export function DecisionsScreen() {
 
       <button
         type="button"
-        className="btn-ghost btn-wide mt-5"
+        className="btn-ghost btn-wide mt-3 py-2.5"
         onClick={() => {
           setDraft(emptyDraft(firstOf(data.lists.categories, 'キッチン')))
           setAdding((value) => !value)
@@ -205,7 +215,7 @@ export function DecisionsScreen() {
       </button>
       {adding ? (
         <article className="panel mt-3 md:max-w-xl">
-          <DecisionFields value={draft} onChange={setDraft} />
+          <DecisionFields value={draft} onChange={setDraft} isNew />
           <button
             type="button"
             className="btn-primary btn-wide mt-3"
@@ -225,7 +235,9 @@ export function DecisionsScreen() {
                 key={`due-${item.id}`}
                 item={item}
                 open={openIds.has(item.id)}
+                editing={editingIds.has(item.id)}
                 onToggle={() => toggle(item.id)}
+                onToggleEdit={() => toggleEdit(item.id)}
                 onPatch={(partial) => patch(item.id, partial)}
                 onRemove={() => remove(item.id)}
               />
@@ -243,7 +255,9 @@ export function DecisionsScreen() {
                 key={item.id}
                 item={item}
                 open={openIds.has(item.id)}
+                editing={editingIds.has(item.id)}
                 onToggle={() => toggle(item.id)}
+                onToggleEdit={() => toggleEdit(item.id)}
                 onPatch={(partial) => patch(item.id, partial)}
                 onRemove={() => remove(item.id)}
               />
@@ -278,98 +292,180 @@ function Chip({
 function DecisionCard({
   item,
   open,
+  editing,
   onToggle,
+  onToggleEdit,
   onPatch,
   onRemove,
 }: {
   item: Decision
   open: boolean
+  editing: boolean
   onToggle: () => void
+  onToggleEdit: () => void
   onPatch: (partial: Partial<Decision>) => void
   onRemove: () => void
 }) {
   const urgency = dueUrgency(item.due)
+  const preview = firstLine(item.body, 60)
   return (
     <li
-      className={`note-card border-l-4 ${STATUS_BORDER[item.status]} ${
-        open ? 'md:col-span-2' : ''
-      }`}
+      id={`item-${item.id}`}
+      className={`note-card scroll-mt-24 ${open ? 'md:col-span-2' : ''}`}
     >
       <button
         type="button"
-        className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
+        className="block w-full px-4 py-3 text-left"
         onClick={onToggle}
+        aria-expanded={open}
       >
-        <span>
-          <span className="flex items-start justify-between gap-3">
-            <span className="block text-sm text-ink">{item.title}</span>
-            <WhoStamp who={item.who} />
+        <span className="flex items-start gap-2">
+          <span className="min-w-0 flex-1 text-[15px] font-bold leading-snug text-ink">
+            {item.title}
           </span>
-          <span className="mt-0.5 block text-xs text-muted">
-            {STATUS_LABEL[item.status]}
-            {item.drawn ? ' · 図面済' : ''}
-            {item.due ? ` · ${item.due}` : ''}
-          </span>
-          {firstLine(item.body) ? (
-            <span className="mt-0.5 block text-xs text-muted">
-              {firstLine(item.body)}
-            </span>
-          ) : null}
-          <AttachmentHint files={item.attachments} />
+          <WhoStamp who={item.who} />
         </span>
-        {urgency ? (
-          <span
-            className={`text-[10px] ${urgency === 'overdue' ? 'text-timber' : 'text-amber'}`}
-          >
-            {urgency === 'overdue' ? '期限超過' : '期限近し'}
-          </span>
+        <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={item.status} />
+          {item.status >= 2 ? (
+            item.drawn ? <Tag tone="green">図面済</Tag> : <Tag tone="orange">図面未反映</Tag>
+          ) : null}
+          {urgency ? (
+            <Tag tone={urgency === 'overdue' ? 'red' : 'orange'}>
+              {urgency === 'overdue' ? '期限超過' : '期限近し'} {item.due}
+            </Tag>
+          ) : item.due ? (
+            <Tag>締切 {item.due}</Tag>
+          ) : null}
+          {item.cost !== undefined ? <Tag>{item.cost}万円</Tag> : null}
+        </span>
+        {!open && preview ? (
+          <span className="mt-1.5 block text-[13px] leading-snug text-ink/70">{preview}</span>
         ) : null}
+        {!open ? <AttachmentHint files={item.attachments} /> : null}
       </button>
       {open ? (
-        <div className="border-t border-line px-3 py-3">
-          <DecisionFields value={item} onChange={(next) => onPatch(next)} />
-          <button
-            type="button"
-            className="mt-3 text-sm text-timber"
-            onClick={onRemove}
-          >
-            削除
-          </button>
+        <div className="space-y-4 border-t border-line px-4 py-3">
+          {editing ? (
+            <>
+              <EditBar editing onToggle={onToggleEdit}>
+                <span className="text-[13px] text-muted">変更はその場で保存されます</span>
+              </EditBar>
+              <DecisionFields value={item} onChange={(next) => onPatch(next)} />
+              <DangerZone onRemove={onRemove} label="この決定を削除" />
+            </>
+          ) : (
+            <>
+              <EditBar editing={false} onToggle={onToggleEdit}>
+                <Tag>{item.cat}</Tag>
+                {item.area ? <Tag>{item.area}</Tag> : null}
+              </EditBar>
+              <ReadBlock label="決定内容" text={item.body} empty="（まだ書いていません）" />
+              <QuickStatus value={item} onPatch={onPatch} />
+              <Attachments
+                files={item.attachments}
+                ownerId={item.id}
+                readOnly
+                onChange={(attachments) => onPatch({ attachments })}
+              />
+              <p className="text-xs text-muted">最終更新 {item.updatedAt.slice(0, 10)}</p>
+            </>
+          )}
         </div>
       ) : null}
     </li>
   )
 }
 
-function DecisionFields({
+// 読む表示のまま、確定度と図面反映だけはワンタップで変えられる
+function QuickStatus({
+  value,
+  onPatch,
+}: {
+  value: Decision
+  onPatch: (partial: Partial<Decision>) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <StatusPicker value={value.status} onChange={(status) => onPatch({ status })} />
+      <DrawnToggle value={value.drawn} onChange={(drawn) => onPatch({ drawn })} />
+    </div>
+  )
+}
+
+function StatusPicker({
   value,
   onChange,
 }: {
+  value: Status
+  onChange: (status: Status) => void
+}) {
+  return (
+    <div>
+      <p className="mb-1 text-[13px] text-muted">確定度</p>
+      <div className="grid grid-cols-4 gap-1.5">
+        {STATUS_LABEL.map((label, status) => (
+          <button
+            key={label}
+            type="button"
+            className={`rounded-sm border px-1 py-2 text-sm ${
+              value === status
+                ? `${STATUS_BUTTON_ON[status as Status]} font-bold`
+                : 'border-line bg-card text-muted'
+            }`}
+            onClick={() => onChange(status as Status)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DrawnToggle({
+  value,
+  onChange,
+}: {
+  value: boolean
+  onChange: (drawn: boolean) => void
+}) {
+  return (
+    <label
+      className={`flex items-center gap-3 rounded-sm border px-3 py-2.5 text-[15px] ${
+        value ? 'border-green bg-soft-green text-green' : 'border-line bg-card text-ink'
+      }`}
+    >
+      <input
+        type="checkbox"
+        className="h-5 w-5 accent-green"
+        checked={value}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      図面に反映した
+    </label>
+  )
+}
+
+function DecisionFields({
+  value,
+  onChange,
+  isNew = false,
+}: {
   value: Decision
   onChange: (next: Decision) => void
+  isNew?: boolean
 }) {
   const { data } = useData()
   const showArea = usesAreas(value.cat)
+  const hasDetail =
+    value.cost !== undefined || Boolean(value.due) || value.attachments.length > 0
   return (
     <div className="space-y-3">
-      <WhoField
-        value={value.who}
-        onChange={(who) => onChange({ ...value, who })}
-      />
-      <SelectField
-        label="大分類"
-        value={value.cat}
-        onChange={(event) => onChange({ ...value, cat: event.target.value })}
-      >
-        {optionsFor(data.lists.categories, value.cat).map((cat) => (
-          <option key={cat} value={cat}>
-            {cat}
-          </option>
-        ))}
-      </SelectField>
       <TextField
         label="項目名"
         value={value.title}
+        placeholder="例：食洗機"
         onChange={(event) => onChange({ ...value, title: event.target.value })}
       />
       <TextArea
@@ -377,82 +473,82 @@ function DecisionFields({
         value={value.body}
         onChange={(event) => onChange({ ...value, body: event.target.value })}
       />
-      <div>
-        <p className="mb-1 text-xs text-muted">確定度</p>
-        <div className="grid grid-cols-2 gap-2">
-          {STATUS_LABEL.map((label, status) => (
-            <button
-              key={label}
-              type="button"
-              className={`rounded-sm border px-2 py-2 text-sm ${
-                value.status === status
-                  ? `${STATUS_BORDER[status as Status]} bg-paper font-medium text-ink`
-                  : 'border-line text-muted'
-              }`}
-              onClick={() => onChange({ ...value, status: status as Status })}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <label className="flex items-center gap-2 text-sm text-ink">
-        <input
-          type="checkbox"
-          checked={value.drawn}
-          onChange={(event) =>
-            onChange({ ...value, drawn: event.target.checked })
-          }
-        />
-        図面に反映した
-      </label>
-      {showArea ? (
+      <StatusPicker
+        value={value.status}
+        onChange={(status) => onChange({ ...value, status })}
+      />
+      <DrawnToggle
+        value={value.drawn}
+        onChange={(drawn) => onChange({ ...value, drawn })}
+      />
+      <div className={`grid gap-2 ${showArea ? 'grid-cols-2' : 'grid-cols-1'}`}>
         <SelectField
-          label="外構エリア"
-          value={value.area ?? ''}
-          onChange={(event) =>
-            onChange({
-              ...value,
-              area: event.target.value || undefined,
-            })
-          }
+          label="大分類"
+          value={value.cat}
+          onChange={(event) => onChange({ ...value, cat: event.target.value })}
         >
-          <option value="">未設定</option>
-          {optionsFor(data.lists.areas, value.area).map((area) => (
-            <option key={area} value={area}>
-              {area}
+          {optionsFor(data.lists.categories, value.cat).map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
             </option>
           ))}
         </SelectField>
-      ) : null}
-      <TextField
-        label="概算（万円）"
-        type="number"
-        inputMode="decimal"
-        value={value.cost ?? ''}
-        onChange={(event) =>
-          onChange({
-            ...value,
-            cost: event.target.value === '' ? undefined : Number(event.target.value),
-          })
-        }
+        {showArea ? (
+          <SelectField
+            label="外構エリア"
+            value={value.area ?? ''}
+            onChange={(event) =>
+              onChange({
+                ...value,
+                area: event.target.value || undefined,
+              })
+            }
+          >
+            <option value="">未設定</option>
+            {optionsFor(data.lists.areas, value.area).map((area) => (
+              <option key={area} value={area}>
+                {area}
+              </option>
+            ))}
+          </SelectField>
+        ) : null}
+      </div>
+      <WhoField
+        value={value.who}
+        onChange={(who) => onChange({ ...value, who })}
       />
-      <TextField
-        label="変更締切"
-        type="date"
-        value={value.due ?? ''}
-        onChange={(event) =>
-          onChange({
-            ...value,
-            due: event.target.value || undefined,
-          })
-        }
-      />
-      <Attachments
-        files={value.attachments}
-        ownerId={value.id}
-        onChange={(attachments) => onChange({ ...value, attachments })}
-      />
+      <Disclosure label="概算・変更締切・写真" defaultOpen={hasDetail && !isNew}>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField
+            label="概算（万円）"
+            type="number"
+            inputMode="decimal"
+            value={value.cost ?? ''}
+            onChange={(event) =>
+              onChange({
+                ...value,
+                cost: event.target.value === '' ? undefined : Number(event.target.value),
+              })
+            }
+          />
+          <TextField
+            label="変更締切"
+            type="date"
+            value={value.due ?? ''}
+            onChange={(event) =>
+              onChange({
+                ...value,
+                due: event.target.value || undefined,
+              })
+            }
+          />
+        </div>
+        <Attachments
+          files={value.attachments}
+          ownerId={value.id}
+          onChange={(attachments) => onChange({ ...value, attachments })}
+        />
+      </Disclosure>
     </div>
   )
 }

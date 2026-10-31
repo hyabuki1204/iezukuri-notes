@@ -1,7 +1,7 @@
 import type { TextareaHTMLAttributes, SelectHTMLAttributes, InputHTMLAttributes } from 'react'
 
 const box =
-  'w-full rounded-sm border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none focus:border-blue'
+  'w-full rounded-sm border border-line bg-paper px-3 py-2.5 text-base text-ink outline-none focus:border-blue'
 
 export function TextField({
   label,
@@ -9,7 +9,7 @@ export function TextField({
 }: { label: string } & InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-[13px] text-muted">{label}</span>
       <input className={box} {...props} />
     </label>
   )
@@ -21,7 +21,7 @@ export function TextArea({
 }: { label: string } & TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-[13px] text-muted">{label}</span>
       <textarea className={`${box} min-h-24`} {...props} />
     </label>
   )
@@ -34,7 +34,7 @@ export function SelectField({
 }: { label: string } & SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-[13px] text-muted">{label}</span>
       <select className={box} {...props}>
         {children}
       </select>

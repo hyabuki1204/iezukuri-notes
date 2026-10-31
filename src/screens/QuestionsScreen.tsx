@@ -1,8 +1,15 @@
-import { useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Attachments, AttachmentHint } from '../components/Attachments.tsx'
 import { Modal } from '../components/Modal.tsx'
 import { SelectField, TextArea, TextField } from '../components/Field.tsx'
 import { WhoField, WhoStamp } from '../components/WhoField.tsx'
+import {
+  DangerZone,
+  EditBar,
+  Tag,
+  useOpenFromJump,
+  useOpenSet,
+} from '../components/ui.tsx'
 import { useData } from '../app/DataProvider.tsx'
 import { keepPaths, removeAttachments } from '../lib/files.ts'
 import { newId, nowIso } from '../lib/ids.ts'
@@ -13,8 +20,11 @@ import { type Question, type Who } from '../storage/types.ts'
 
 export function QuestionsScreen() {
   const { data, update } = useData()
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const { openIds, setOpenIds, editingIds, toggle, toggleEdit } = useOpenSet()
   const [showDone, setShowDone] = useState(false)
+  const [byAssignee, setByAssignee] = useState(true)
+  const [justDone, setJustDone] = useState<Question | null>(null)
+  const toastTimer = useRef(0)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({
     id: newId(),
@@ -31,13 +41,38 @@ export function QuestionsScreen() {
   const openItems = data.questions.filter((item) => !item.done)
   const doneItems = data.questions.filter((item) => item.done)
 
-  function toggle(id: string) {
-    setOpenIds((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const openOne = useCallback(
+    (id: string) => {
+      if (data.questions.find((item) => item.id === id)?.done) setShowDone(true)
+      setOpenIds((current) => new Set(current).add(id))
+    },
+    [data.questions, setOpenIds],
+  )
+  useOpenFromJump('questions', openOne)
+
+  const groups = useMemo(() => {
+    if (!byAssignee) return [['', openItems]] as const
+    const order = [
+      ...data.lists.assignees,
+      ...openItems.map((item) => item.to).filter((to) => !data.lists.assignees.includes(to)),
+    ]
+    return [...new Set(order)]
+      .map((to) => [to, openItems.filter((item) => item.to === to)] as const)
+      .filter(([, list]) => list.length > 0)
+  }, [byAssignee, openItems, data.lists.assignees])
+
+  function markDone(item: Question, done: boolean) {
+    patch(item.id, { done })
+    setJustDone(done ? item : null)
+    window.clearTimeout(toastTimer.current)
+    if (done) toastTimer.current = window.setTimeout(() => setJustDone(null), 6000)
+    if (done) {
+      setOpenIds((current) => {
+        const next = new Set(current)
+        next.delete(item.id)
+        return next
+      })
+    }
   }
 
   function patch(id: string, partial: Partial<Question>) {
@@ -177,26 +212,72 @@ export function QuestionsScreen() {
         </div>
       ) : null}
 
-      <ul className="card-list">
-        {openItems.map((item) => (
-          <QuestionCard
-            key={item.id}
-            item={item}
-            open={openIds.has(item.id)}
-            onToggle={() => toggle(item.id)}
-            onPatch={(partial) => patch(item.id, partial)}
-            onPromote={() => startPromote(item)}
-            onRemove={() => remove(item.id)}
-          />
-        ))}
-      </ul>
+      {justDone ? (
+        <div className="mt-3 flex items-center gap-3 rounded-sm bg-ink px-4 py-2.5 text-card">
+          <p className="min-w-0 flex-1 truncate text-sm">「{justDone.text}」を回答済にしました</p>
+          <button
+            type="button"
+            className="shrink-0 text-sm font-bold text-card underline underline-offset-4"
+            onClick={() => markDone(justDone, false)}
+          >
+            元に戻す
+          </button>
+        </div>
+      ) : null}
+
+      <div className="mt-3 flex items-center justify-between">
+        <p className="text-[13px] text-muted">未回答 {openItems.length}件</p>
+        <div className="flex rounded-full border border-line bg-card p-0.5 text-[13px]">
+          {(
+            [
+              [true, '宛先ごと'],
+              [false, '一覧'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={label}
+              type="button"
+              className={`rounded-full px-3 py-1 ${byAssignee === value ? 'bg-blue font-bold text-card' : 'text-muted'}`}
+              onClick={() => setByAssignee(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {groups.map(([to, list]) => (
+        <section key={to || 'all'} className="mt-4">
+          {to ? (
+            <h2 className="section-title">
+              {to}に聞く <span className="font-normal">{list.length}件</span>
+            </h2>
+          ) : null}
+          <ul className="card-list mt-2">
+            {list.map((item) => (
+              <QuestionCard
+                key={item.id}
+                item={item}
+                open={openIds.has(item.id)}
+                editing={editingIds.has(item.id)}
+                onToggle={() => toggle(item.id)}
+                onToggleEdit={() => toggleEdit(item.id)}
+                onPatch={(partial) => patch(item.id, partial)}
+                onDone={(done) => markDone(item, done)}
+                onPromote={() => startPromote(item)}
+                onRemove={() => remove(item.id)}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
 
       <button
         type="button"
-        className="mt-5 w-full text-left text-sm text-muted"
+        className="btn-ghost mt-6 w-full py-2.5 text-muted"
         onClick={() => setShowDone((value) => !value)}
       >
-        回答済 {doneItems.length}件 {showDone ? 'を閉じる' : 'を見る'}
+        回答済 {doneItems.length}件{showDone ? 'を閉じる' : 'を見る'}
       </button>
       {showDone ? (
         <ul className="card-list mt-2">
@@ -205,8 +286,11 @@ export function QuestionsScreen() {
               key={item.id}
               item={item}
               open={openIds.has(item.id)}
+              editing={editingIds.has(item.id)}
               onToggle={() => toggle(item.id)}
+              onToggleEdit={() => toggleEdit(item.id)}
               onPatch={(partial) => patch(item.id, partial)}
+              onDone={(done) => markDone(item, done)}
               onPromote={() => startPromote(item)}
               onRemove={() => remove(item.id)}
             />
@@ -255,94 +339,135 @@ export function QuestionsScreen() {
 function QuestionCard({
   item,
   open,
+  editing,
   onToggle,
+  onToggleEdit,
   onPatch,
+  onDone,
   onPromote,
   onRemove,
 }: {
   item: Question
   open: boolean
+  editing: boolean
   onToggle: () => void
+  onToggleEdit: () => void
   onPatch: (partial: Partial<Question>) => void
+  onDone: (done: boolean) => void
   onPromote: () => void
   onRemove: () => void
 }) {
   const { data } = useData()
   return (
-    <li className={`note-card ${open ? 'md:col-span-2' : ''}`}>
-      <button
-        type="button"
-        className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
-        onClick={onToggle}
-      >
-        <span>
-          <span className="flex items-start justify-between gap-3">
-            <span className="block text-sm text-ink">{item.text}</span>
+    <li id={`item-${item.id}`} className={`note-card scroll-mt-24 ${open ? 'md:col-span-2' : ''}`}>
+      <div className="flex items-stretch">
+        <button
+          type="button"
+          className="block min-w-0 flex-1 px-4 py-3 text-left"
+          onClick={onToggle}
+          aria-expanded={open}
+        >
+          <span className="flex items-start gap-2">
+            <span
+              className={`min-w-0 flex-1 text-[15px] leading-snug ${item.done ? 'text-muted line-through decoration-1' : 'text-ink'}`}
+            >
+              {item.text}
+            </span>
             <WhoStamp who={item.who} />
           </span>
-          <span className="mt-0.5 block text-xs text-muted">{item.to}</span>
-          {item.answer ? (
-            <span className="mt-0.5 block text-xs text-muted">
-              {firstLine(item.answer)}
+          <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Tag tone="blue">{item.to}</Tag>
+            {item.done ? <Tag tone="green">回答済</Tag> : null}
+          </span>
+          {!open && item.answer ? (
+            <span className="mt-1.5 block text-[13px] leading-snug text-ink/70">
+              回答：{firstLine(item.answer, 60)}
             </span>
           ) : null}
-          <AttachmentHint files={item.attachments} />
-        </span>
-        <span className="text-[10px] text-muted">{item.done ? '回答済' : '未'}</span>
-      </button>
-      {open ? (
-        <div className="space-y-3 border-t border-line px-3 py-3">
-          <WhoField
-            value={item.who}
-            onChange={(who) => onPatch({ who })}
-          />
-          <SelectField
-            label="宛先"
-            value={item.to}
-            onChange={(event) =>
-              onPatch({ to: event.target.value })
-            }
-          >
-            {optionsFor(data.lists.assignees, item.to).map((to) => (
-              <option key={to} value={to}>
-                {to}
-              </option>
-            ))}
-          </SelectField>
-          <TextArea
-            label="回答"
-            value={item.answer}
-            onChange={(event) => onPatch({ answer: event.target.value })}
-          />
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={item.done}
-              onChange={(event) => onPatch({ done: event.target.checked })}
-            />
-            回答済
-          </label>
-          <Attachments
-            files={item.attachments}
-            ownerId={item.id}
-            onChange={(attachments) => onPatch({ attachments })}
-          />
-          {item.done ? (
-            <button
-              type="button"
-              className="btn-ghost w-full"
-              onClick={onPromote}
-            >
-              決定台帳へ送る
-            </button>
-          ) : null}
+          {!open ? <AttachmentHint files={item.attachments} /> : null}
+        </button>
+        {!item.done ? (
           <button
             type="button"
-            className="text-sm text-timber"
-            onClick={onRemove}
+            className="flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-line text-green"
+            onClick={() => onDone(true)}
+            aria-label="回答済にする"
           >
-            削除
+            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+              <path d="m8 12.5 2.7 2.7L16.5 9.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-[11px] font-bold">済にする</span>
           </button>
+        ) : null}
+      </div>
+      {open ? (
+        <div className="space-y-3 border-t border-line px-4 py-3">
+          <EditBar editing={editing} onToggle={onToggleEdit}>
+            <span className="text-[13px] text-muted">
+              {editing ? '質問文・宛先・写真を直せます' : '回答はその場で書けます'}
+            </span>
+          </EditBar>
+          {editing ? (
+            <>
+              <TextArea
+                label="質問"
+                value={item.text}
+                onChange={(event) => onPatch({ text: event.target.value })}
+              />
+              <SelectField
+                label="宛先"
+                value={item.to}
+                onChange={(event) => onPatch({ to: event.target.value })}
+              >
+                {optionsFor(data.lists.assignees, item.to).map((to) => (
+                  <option key={to} value={to}>
+                    {to}
+                  </option>
+                ))}
+              </SelectField>
+              <WhoField value={item.who} onChange={(who) => onPatch({ who })} />
+              <Attachments
+                files={item.attachments}
+                ownerId={item.id}
+                onChange={(attachments) => onPatch({ attachments })}
+              />
+              <DangerZone onRemove={onRemove} label="この質問を削除" />
+            </>
+          ) : (
+            <>
+              <TextArea
+                label="回答"
+                value={item.answer}
+                placeholder="聞いた答えをメモ"
+                onChange={(event) => onPatch({ answer: event.target.value })}
+              />
+              <Attachments
+                files={item.attachments}
+                ownerId={item.id}
+                readOnly
+                onChange={(attachments) => onPatch({ attachments })}
+              />
+              {item.done ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" className="btn-ghost" onClick={() => onDone(false)}>
+                    未回答に戻す
+                  </button>
+                  <button type="button" className="btn-primary" onClick={onPromote}>
+                    決定台帳へ送る
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-wide bg-green text-card"
+                  onClick={() => onDone(true)}
+                >
+                  回答済にする
+                </button>
+              )}
+            </>
+          )}
         </div>
       ) : null}
     </li>

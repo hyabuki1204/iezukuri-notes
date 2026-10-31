@@ -9,7 +9,7 @@ export function WhoField({
 }) {
   return (
     <div>
-      <p className="mb-1 text-xs text-muted">書いた人</p>
+      <p className="mb-1 text-[13px] text-muted">書いた人</p>
       <div className="grid grid-cols-2 gap-2">
         {WHOS.map((who) => (
           <button
@@ -31,5 +31,9 @@ export function WhoField({
 }
 
 export function WhoStamp({ who }: { who: Who }) {
-  return <span className="text-[10px] text-muted">{who}</span>
+  return (
+    <span className="shrink-0 whitespace-nowrap rounded-full bg-paper px-2 py-0.5 text-[11px] text-muted">
+      {who}
+    </span>
+  )
 }

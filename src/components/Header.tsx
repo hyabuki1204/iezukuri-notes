@@ -3,14 +3,15 @@ import { useData } from '../app/DataProvider.tsx'
 import { dueUrgency } from '../lib/due.ts'
 import { headerStats } from '../lib/stats.ts'
 import { parseImportedJson } from '../storage/local.ts'
-import { NavIcon } from './NavIcon.tsx'
+import { SearchOverlay } from './SearchOverlay.tsx'
 import { NavTabs } from './NavTabs.tsx'
 
 export function Header({ onEditLists }: { onEditLists: () => void }) {
-  const { data, replace, cloud, cloudMessage, go, tab, setTab } = useData()
+  const { data, replace, cloud, cloudMessage, unsynced, retry, go } = useData()
   const stats = headerStats(data)
   const urgentCount = data.decisions.filter((item) => dueUrgency(item.due)).length
   const [open, setOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -53,7 +54,7 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
       <header className="app-chrome sticky top-0 z-20 border-b border-line bg-card pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 md:px-8">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-blue text-card">
+            <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-blue text-card sm:flex">
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path
                   d="M4.5 11 12 4.5 19.5 11v8a1.5 1.5 0 0 1-1.5 1.5h-4.5v-5h-3v5H6A1.5 1.5 0 0 1 4.5 19v-8Z"
@@ -65,11 +66,15 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
             </span>
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold text-ink">家づくりメモ</h1>
-              <p className="text-[11px] text-muted">
+              <p
+                className={`text-xs ${cloud === 'error' ? 'font-bold text-timber' : 'text-muted'}`}
+              >
                 {cloud === 'connected'
-                  ? '2台で共有中'
+                  ? unsynced
+                    ? '保存中…'
+                    : '2台で共有中'
                   : cloud === 'error'
-                    ? 'クラウド未接続（この端末のみ）'
+                    ? 'クラウド未接続'
                     : 'この端末のみ'}
               </p>
             </div>
@@ -79,10 +84,21 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
             <NavTabs variant="header" />
           </nav>
 
-          <div className="relative ml-auto flex items-center gap-2">
+          <div className="relative ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              className="flex h-10 items-center gap-1 rounded-sm border border-line bg-paper px-2.5 text-xs font-medium whitespace-nowrap text-ink"
+              onClick={() => setSearching(true)}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                <path d="m16 16 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              検索
+            </button>
             <a
               href="/ldk/"
-              className="flex h-10 items-center gap-1.5 rounded-sm border border-line bg-paper px-3 text-xs font-medium text-ink"
+              className="flex h-10 items-center gap-1 rounded-sm border border-line bg-paper px-2.5 text-xs font-medium text-ink"
               aria-label="LDK 3D ウォークスルーを開く"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -97,19 +113,7 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
             </a>
             <button
               type="button"
-              className={`flex h-10 w-10 items-center justify-center rounded-sm border ${
-                tab === 'docs'
-                  ? 'border-blue bg-soft-blue text-blue'
-                  : 'border-line bg-paper text-ink'
-              }`}
-              aria-label="資料"
-              onClick={() => setTab('docs')}
-            >
-              <NavIcon id="docs" className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="rounded-sm border border-line bg-paper px-3 py-2 text-xs font-medium text-ink"
+              className="flex h-10 items-center rounded-sm border border-line bg-paper px-2.5 text-xs font-medium whitespace-nowrap text-ink"
               onClick={() => setOpen((value) => !value)}
               aria-expanded={open}
             >
@@ -152,7 +156,23 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
             />
           </div>
         </div>
+        {cloud === 'error' ? (
+          <div className="flex items-center gap-3 bg-timber px-4 py-2.5 text-card md:px-8">
+            <p className="flex-1 text-[13px] leading-snug" title={cloudMessage ?? undefined}>
+              <span className="font-bold">クラウドに繋がっていません。</span>
+              入力した内容はこの端末にだけ保存中です。繋がり次第、自動で送ります。
+            </p>
+            <button
+              type="button"
+              className="shrink-0 rounded-sm bg-card px-3 py-2 text-xs font-bold text-timber"
+              onClick={retry}
+            >
+              再接続
+            </button>
+          </div>
+        ) : null}
       </header>
+      {searching ? <SearchOverlay onClose={() => setSearching(false)} /> : null}
 
       <section className="border-b border-line bg-card">
         <dl className="mx-auto grid max-w-6xl grid-cols-3 gap-2 px-4 py-3 md:px-8">
@@ -188,9 +208,9 @@ export function Header({ onEditLists }: { onEditLists: () => void }) {
           </div>
         ) : null}
 
-        {message || cloudMessage ? (
+        {message ? (
           <p className="mx-auto max-w-6xl px-4 pb-3 text-xs text-muted md:px-8">
-            {message ?? cloudMessage}
+            {message}
           </p>
         ) : null}
       </section>
@@ -215,7 +235,7 @@ function Stat({
       className="rounded-sm border border-line bg-paper px-2 py-2 text-center"
       onClick={onClick}
     >
-      <span className="block text-[10px] text-muted">{label}</span>
+      <span className="block text-xs text-muted">{label}</span>
       <span className={`block text-xl font-bold ${tone}`}>{value}</span>
     </button>
   )

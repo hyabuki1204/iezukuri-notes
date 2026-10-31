@@ -16,7 +16,7 @@ export function NavTabs({
       className={
         variant === 'header'
           ? 'flex items-center gap-2'
-          : 'grid grid-cols-4'
+          : 'grid grid-cols-5'
       }
     >
       {MAIN_TABS.map((item) => (
@@ -80,7 +80,7 @@ function NavTab({
             </span>
           ) : null}
         </span>
-        <span className={`text-xs ${active ? 'font-medium text-blue' : 'text-muted'}`}>
+        <span className={`text-xs ${active ? 'font-bold text-blue' : 'text-muted'}`}>
           {label}
         </span>
       </button>
