@@ -1,6 +1,6 @@
 import { useGLTF, useTexture } from "@react-three/drei"
 import { useLoader, useThree } from "@react-three/fiber"
-import { useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import {
   BoxGeometry,
   BufferAttribute,
@@ -36,6 +36,7 @@ import {
 import { SKY_ROTATION } from "./Lighting"
 import { patchMaterial } from "./patch"
 import { applyWorldUV, BOARD_PALETTE, COUNTER_PALETTE, createMaterials, KITCHEN_PALETTE, kitchenMaterialFor, type MaterialLib, setStone } from "./materials"
+import { mergeStatic } from "./merge"
 import { setCollision } from "./player"
 import type { QualityProfile } from "./quality"
 
@@ -212,6 +213,11 @@ const CURTAIN_GROUPS = {
   drapeClosed: /^ドレープ閉/,
 }
 
+/** 開閉・表示切替するもの。まとめずに個別のまま残す */
+function isToggled(o: Object3D): boolean {
+  return !!doorLeaf(o.name) || Object.values(CURTAIN_GROUPS).some((re) => re.test(o.name))
+}
+
 function applyVisibility(root: Object3D, curtain: CurtainState, time: TimeOfDay, doors: DoorState, override: DoorOverride) {
   const closed = curtain === "closed"
   const vis = {
@@ -247,12 +253,23 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
   const { scene } = useGLTF(MODEL_URL[ceiling])
   const lib = useMaterialLib(q)
   const invalidate = useThree((s) => s.invalidate)
+  const gl = useThree((s) => s.gl)
+  // 影は止まっている物しか落とさないので、見た目が変わった時だけ描き直す (Viewer で毎フレームの更新を止めている)
+  const refresh = useCallback(() => {
+    gl.shadowMap.needsUpdate = true
+    invalidate()
+  }, [gl, invalidate])
   // スマホは表示中の天井高のライトマップだけ持つ
   const canBake = q.baked && hasLightmap(ceiling) && (visible || !MOBILE)
   const [lm, sky] = useTexture(canBake ? [lightmapUrl(ceiling), asset("textures/suburban_garden_sky.jpg")] : []) as Texture[]
   const { root, slots, board: boardMesh } = useMemo(() => {
     const r = scene.clone(true)
-    const slots = prepare(r, lib)
+    const slots = mergeStatic(
+      r,
+      prepare(r, lib).map((s) => ({ ...s, key: `${s.name}|${s.ceiling}|${s.lightmapped}|${s.exterior}` })),
+      isToggled,
+      (s, mesh) => ({ ...s, mesh }),
+    )
     const b = kitchenBoard(lib, ceiling)
     r.add(b)
     return { root: r, slots, board: b }
@@ -260,8 +277,8 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
 
   useEffect(() => {
     boardMesh.visible = board !== "none"
-    invalidate()
-  }, [boardMesh, board, invalidate])
+    refresh()
+  }, [boardMesh, board, refresh])
   const variants = useMemo(() => {
     if (!canBake || !lm || !sky) return undefined
     lm.flipY = false
@@ -285,8 +302,8 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
 
   useEffect(() => {
     applyVisibility(root, curtain, time, doors, doorOverride)
-    invalidate()
-  }, [root, curtain, time, doors, doorOverride, invalidate])
+    refresh()
+  }, [root, curtain, time, doors, doorOverride, refresh])
 
   useEffect(() => {
     if (visible) setCollision(root)
@@ -297,8 +314,8 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
       const base = s.ceiling ? (ceilColor === "white" ? lib.ceilWhite : lib.ceilWood) : s.base
       s.mesh.material = baked && (s.lightmapped || s.exterior) ? variants(base, s) : base
     }
-    invalidate()
-  }, [slots, ceilColor, lib, baked, variants, invalidate])
+    refresh()
+  }, [slots, ceilColor, lib, baked, variants, refresh])
 
   useEffect(() => {
     const p = KITCHEN_PALETTE[kitchen]
@@ -326,5 +343,7 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
   return <primitive object={root} visible={visible} />
 }
 
-useGLTF.preload(MODEL_URL[2.5])
-useGLTF.preload(MODEL_URL[2.7])
+/** もう片方の天井高のモデルは、表示が落ち着いてから先読みする (PC のみ。スマホは切り替えた時に読む) */
+export function preloadModel(ceiling: 2.5 | 2.7) {
+  useGLTF.preload(MODEL_URL[ceiling])
+}

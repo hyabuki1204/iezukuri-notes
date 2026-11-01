@@ -62,9 +62,9 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 }
 
 const QUALITY_HINT: Record<Quality, string> = {
-  low: "軽量 (スマホ向け)",
-  medium: "焼き込み間接光・柔らかい影",
-  ultra: "床の映り込み・柔らかい影まで",
+  low: "いちばん軽い (古いスマホ向け)",
+  medium: "焼き込み間接光・影 (おすすめ)",
+  ultra: "床の映り込み・柔らかい影まで (高性能なPC向け・重い)",
 }
 
 interface Props {

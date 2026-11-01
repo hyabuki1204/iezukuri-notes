@@ -6,13 +6,13 @@ import { lazy, Suspense, useEffect, useRef } from "react"
 import { NoToneMapping, PCFShadowMap, VSMShadowMap } from "three"
 import { DATA, type DoorOverride, EYE_HEIGHT, hasLightmap, MOBILE, panoUrl, type Settings } from "./data"
 import { FloorReflector } from "./FloorReflector"
-import { LdkModel } from "./LdkModel"
+import { LdkModel, preloadModel } from "./LdkModel"
 import { Lighting } from "./Lighting"
 import { usePtStatus } from "./ptStatus"
 import { PanoView } from "./PanoView"
 import { input, tour } from "./player"
 import { Player } from "./Player"
-import { QUALITY, type QualityProfile, type ToneMap } from "./quality"
+import { qualityProfile, type QualityProfile, type ToneMap } from "./quality"
 
 /** スマホの描画解像度の上限。横向きにすると描画バッファを作り直すので、iOS の GPU メモリ上限に余裕を残す */
 const MOBILE_DPR = 1.5
@@ -49,6 +49,29 @@ function Effects({ q, day, tone }: { q: QualityProfile; day: boolean; tone: Tone
       <SMAA />
     </EffectComposer>
   )
+}
+
+/**
+ * 影を毎フレーム描き直さない。家は動かないので、モデルの表示や扉・カーテンが変わった時だけ
+ * LdkModel が needsUpdate を立てる。これで歩行中の描画が 1 回分 (部材数ぶんの描画命令) 減る
+ */
+function StaticShadows() {
+  const gl = useThree((s) => s.gl)
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false
+    gl.shadowMap.needsUpdate = true
+  }, [gl])
+  return null
+}
+
+/** 表示が落ち着いてから、もう片方の天井高のモデルを先読みする (PC のみ) */
+function PreloadOther({ ceiling }: { ceiling: 2.5 | 2.7 }) {
+  useEffect(() => {
+    if (MOBILE) return
+    const id = window.setTimeout(() => preloadModel(ceiling === 2.5 ? 2.7 : 2.5), 4000)
+    return () => window.clearTimeout(id)
+  }, [ceiling])
+  return null
 }
 
 function Exposure({ value }: { value: number }) {
@@ -98,7 +121,7 @@ function AdaptiveDpr({ max }: { max: number }) {
 export function Viewer({ s, doorOverride, onToggleDoor }: { s: Settings; doorOverride: DoorOverride; onToggleDoor: (id: string) => void }) {
   const pano = s.mode === "pano" ? DATA.panos[s.pano] : undefined
   const eye = EYE_HEIGHT[s.eye]
-  const q = QUALITY[s.quality]
+  const q = qualityProfile(s.quality, MOBILE)
   const day = s.time === "day"
   const baked = q.baked && day && hasLightmap(s.ceiling)
   const exposure = EXPOSURE[s.tone][baked ? "baked" : s.time]
@@ -117,6 +140,7 @@ export function Viewer({ s, doorOverride, onToggleDoor }: { s: Settings; doorOve
     >
       {q.shadow === "pcss" && <SoftShadows size={18} samples={12} focus={0.6} />}
       <Exposure value={pano ? 0.9 : exposure} />
+      <StaticShadows />
       <AdaptiveDpr max={Math.min(MOBILE ? Math.min(q.dpr, MOBILE_DPR) : q.dpr, window.devicePixelRatio || 1)} />
       <Player eyeHeight={eye} fov={s.fov} anchor={pano?.loc} onToggleDoor={onToggleDoor} />
       {pano ? (
@@ -133,11 +157,11 @@ export function Viewer({ s, doorOverride, onToggleDoor }: { s: Settings; doorOve
             baked={baked}
             lightScale={EXPOSURE[s.tone].night / exposure}
           />
-          {([2.5, 2.7] as const).map((h) => (
+          {([s.ceiling] as const).map((h) => (
             <LdkModel
               key={h}
               ceiling={h}
-              visible={s.ceiling === h}
+              visible
               ceilColor={s.ceilColor}
               kitchen={s.kitchen}
               counter={s.counter}
@@ -150,6 +174,7 @@ export function Viewer({ s, doorOverride, onToggleDoor }: { s: Settings; doorOve
             />
           ))}
           {q.reflector && <FloorReflector />}
+          <PreloadOther ceiling={s.ceiling} />
           <Effects q={q} day={day} tone={s.tone} />
           {ptOn && (
             <Suspense fallback={null}>

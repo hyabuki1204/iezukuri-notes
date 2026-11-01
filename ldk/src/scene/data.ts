@@ -143,7 +143,8 @@ export function lightmapUrl(ceiling: CeilingHeight) {
 }
 
 export function probeUrl(ceiling: CeilingHeight) {
-  return asset(`lightmaps/probe_${Math.round(ceiling * 1000)}.hdr`)
+  // スマホは 512 角 (環境光の映り込み用なので、縮めても見た目はほぼ変わらない)
+  return asset(`lightmaps/probe_${Math.round(ceiling * 1000)}${MOBILE ? "_512" : ""}.hdr`)
 }
 
 /** 焼き込みライトマップがこの天井高で使えるか */

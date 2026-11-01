@@ -27,4 +27,22 @@ export const QUALITY: Record<Quality, QualityProfile> = {
 
 export const QUALITY_LABEL: Record<Quality, string> = { low: "LOW", medium: "MEDIUM", ultra: "ULTRA" }
 
-export const DEFAULT_QUALITY: Quality = "ultra"
+/** ULTRA は高性能な GPU 向け。普段は MEDIUM で始める */
+export const DEFAULT_QUALITY: Quality = "medium"
+
+/**
+ * スマホの MEDIUM: 焼き込み間接光 (描画の負担はほぼ無い) は残し、
+ * 画面全体に重ねる効果 (AO・ブルーム) と、透過ガラスの追加描画、大きな影を外す
+ */
+const MOBILE_MEDIUM: QualityProfile = {
+  ...QUALITY.medium,
+  shadow: "pcf",
+  shadowSize: 2048,
+  ao: "off",
+  glass: "basic",
+  bloom: false,
+}
+
+export function qualityProfile(q: Quality, mobile: boolean): QualityProfile {
+  return mobile && q === "medium" ? MOBILE_MEDIUM : QUALITY[q]
+}
