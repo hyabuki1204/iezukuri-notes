@@ -1,0 +1,28 @@
+{
+  "items": {
+    "boards|brightness(0.55) sepia(0.9) saturate(1.6) hue-rotate(-12deg)|false": "b4ce50fb",
+    "boards|brightness(1.36) sepia(0.12) saturate(0.8)|true": "43ec14b6",
+    "cloth|5": "4c991a20",
+    "deck|brightness(0.62) sepia(0.7) saturate(1.1)": "c54bd670",
+    "grayFabric": "12bb8333",
+    "mottled|128,128,125|0.09|26|11": "e2e597ef",
+    "mottled|200,191,174|0.022|10|23": "06928e67",
+    "mottled|48,72,30|0.22|30|61": "6c1b29b4",
+    "mottled|84,115,56|0.16|18|51": "db324e86",
+    "relief|ao|boards|brightness(1.36) sepia(0.12) saturate(0.8)|true|10|1.5": "a4b5e492",
+    "relief|normal|boards|brightness(1.36) sepia(0.12) saturate(0.8)|true|10|1.5": "9b42d721",
+    "relief|rough|boards|brightness(1.36) sepia(0.12) saturate(0.8)|true|10|1.5": "cc0cdf07",
+    "stone|map|genshou": "3b89a1c5",
+    "stone|map|mikage": "fd1b7c22",
+    "stone|map|soil": "d49f2417",
+    "stone|map|stonegray": "cc81647a",
+    "stone|normal|genshou": "fd19a2d0",
+    "stone|normal|mikage": "03c91595",
+    "stone|normal|soil": "b6aa2604",
+    "stone|normal|stonegray": "f112b4a3",
+    "veneer|brightness(0.7) sepia(0.75) saturate(1.35) hue-rotate(-18deg)": "ae158480",
+    "veneer|brightness(0.95) sepia(0.42) saturate(1.2) hue-rotate(-8deg)": "c0d83c7a",
+    "veneer|brightness(1.62) saturate(0.2) contrast(0.82)": "09a2e078",
+    "wallTiles|168,168,165|2|4|2.36|41": "523bb562"
+  }
+}

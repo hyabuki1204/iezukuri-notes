@@ -126,6 +126,9 @@ function usePanoAvailability(s: Settings) {
 export default function App() {
   const [s, setS] = useState<Settings>(INITIAL)
   const [doorOverride, setDoorOverride] = useState<DoorOverride>({})
+  // 家が最初に描けるまで読み込み表示を出しておく。画質・天井高を変えると作り直すので出し直す
+  const [drawn, setDrawn] = useState(false)
+  useEffect(() => setDrawn(false), [s.quality, s.ceiling])
   const doorsRef = useRef(s.doors)
   doorsRef.current = s.doors
   const [touring, setTouring] = useState(false)
@@ -230,14 +233,14 @@ export default function App() {
         )}
       >
         {panoReady ? (
-          <Viewer s={s} doorOverride={doorOverride} onToggleDoor={toggleDoor} />
+          <Viewer s={s} doorOverride={doorOverride} onToggleDoor={toggleDoor} onDrawn={() => setDrawn(true)} />
         ) : (
           <div className="grid h-full place-items-center p-6 text-center text-sm text-white/60">
             この条件の 360° パノラマはまだレンダリング中です。しばらくすると自動で表示されます。
           </div>
         )}
       </ErrorBoundary>
-      <LoadingOverlay />
+      <LoadingOverlay drawn={drawn || s.mode === "pano"} />
       {s.mode === "walk" && <PtBadge />}
 
       {/* ノッチ・ホームバーにボタンが隠れないよう、UI はセーフエリア内に置く */}

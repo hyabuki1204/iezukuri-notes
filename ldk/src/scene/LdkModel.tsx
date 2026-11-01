@@ -35,7 +35,8 @@ import {
 } from "./data"
 import { SKY_ROTATION } from "./Lighting"
 import { patchMaterial } from "./patch"
-import { applyWorldUV, BOARD_PALETTE, COUNTER_PALETTE, createMaterials, KITCHEN_PALETTE, kitchenMaterialFor, type MaterialLib, setStone } from "./materials"
+import bakedManifest from "./bakedTextures.json"
+import { applyWorldUV, BOARD_PALETTE, COUNTER_PALETTE, createMaterials, KITCHEN_PALETTE, kitchenMaterialFor, type MaterialLib, setBakedImages, setStone, startBakeRecording } from "./materials"
 import { mergeStatic } from "./merge"
 import { setCollision } from "./player"
 import type { QualityProfile } from "./quality"
@@ -67,13 +68,15 @@ function useMaterialLib(q: QualityProfile): MaterialLib {
   const [floorDiff, floorNor, floorRough] = textures
   const [linenNor, grassNor] = textures.slice(BASE_COUNT)
   const scan = q.detailMaps ? textures.slice(BASE_COUNT + DETAIL_TEXTURES.length) : undefined
-  const images = useLoader(
-    ImageLoader,
-    (q.detailMaps ? ["textures/ash_veneer_diff.jpg", "textures/rough_linen_diff.jpg"] : ["textures/ash_veneer_diff.jpg"]).map(asset),
-  )
+  const sources = (q.detailMaps ? ["textures/ash_veneer_diff.jpg", "textures/rough_linen_diff.jpg"] : ["textures/ash_veneer_diff.jpg"]).map(asset)
+  const all = useLoader(ImageLoader, [...sources, ...BAKED_URLS])
+  const images = all.slice(0, sources.length)
+  const bakedList = all.slice(sources.length)
   return useMemo(() => {
     const key = `${q.detailMaps}|${q.glass}|${q.reflector}`
     if (libCache?.ash !== images[0] || libCache.key !== key) {
+      if (BAKE_MODE) startBakeRecording()
+      else setBakedImages(new Map(BAKED_KEYS.map((k, i) => [k, bakedList[i]!])))
       const lib = createMaterials(
         {
           floorDiff,
@@ -96,8 +99,17 @@ function useMaterialLib(q: QualityProfile): MaterialLib {
       libCache = { ash: images[0], key, lib }
     }
     return libCache.lib
-  }, [textures, floorDiff, floorNor, floorRough, linenNor, grassNor, scan, images, q.detailMaps, q.glass, q.reflector])
+  }, [textures, floorDiff, floorNor, floorRough, linenNor, grassNor, scan, images, bakedList, q.detailMaps, q.glass, q.reflector])
 }
+
+/**
+ * 事前に焼いたテクスチャ (scripts/bake-textures.mjs が書き出す)。スマホは半分の解像度。
+ * ?bake=1 で開くと焼かずに生成し、書き出し用に集める
+ */
+const BAKE_MODE = new URLSearchParams(location.search).get("bake") === "1"
+const BAKED_ITEMS = (bakedManifest as { items: Record<string, string> }).items
+const BAKED_KEYS = BAKE_MODE ? [] : Object.keys(BAKED_ITEMS)
+const BAKED_URLS = BAKED_KEYS.map((k) => asset(`baked/${BAKED_ITEMS[k]}${MOBILE ? "_m" : ""}.webp`))
 
 /**
  * 2.5m / 2.7m の 2 モデルで同じマテリアルを使い回す。モデルごとに作ると 2048 角のキャンバスが倍になり、

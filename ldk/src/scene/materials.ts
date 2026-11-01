@@ -11,7 +11,7 @@ import {
   NoColorSpace,
   RepeatWrapping,
   SRGBColorSpace,
-  type Texture,
+  Texture,
   Vector2,
   Vector3,
 } from "three"
@@ -63,8 +63,42 @@ function wrap(t: Texture, size: number, srgb = false) {
   return c
 }
 
-function canvasTexture(cv: HTMLCanvasElement, size: number, srgb = true) {
-  const t = new CanvasTexture(cv)
+/**
+ * 事前に焼いたテクスチャ。下の生成処理 (木目の色調整・石目のノイズなど) はスマホだと数秒〜十数秒かかり、
+ * その間画面が固まるので、scripts/bake-textures.mjs で画像に書き出しておき、起動時はそれを読む。
+ * 焼いた画像が無いキーだけ、その場で生成する
+ */
+type BakedSource = HTMLImageElement | ImageBitmap
+type TexSource = HTMLCanvasElement | BakedSource
+let bakedImages: Map<string, BakedSource> | undefined
+let recording: Map<string, HTMLCanvasElement> | undefined
+
+export function setBakedImages(images: Map<string, BakedSource> | undefined) {
+  bakedImages = images
+}
+
+/** 焼き込み用: 生成したキャンバスを集める (?bake=1 の時だけ) */
+export function startBakeRecording(): Map<string, HTMLCanvasElement> {
+  recording = new Map()
+  bakedImages = undefined
+  return recording
+}
+
+function baked(key: string, make: () => HTMLCanvasElement): TexSource {
+  const img = bakedImages?.get(key)
+  if (img) return img
+  const cv = make()
+  recording?.set(key, cv)
+  return cv
+}
+
+function hasBaked(...keys: string[]) {
+  return !!bakedImages && keys.every((k) => bakedImages!.has(k))
+}
+
+function canvasTexture(src: TexSource, size: number, srgb = true) {
+  const t = src instanceof HTMLCanvasElement ? new CanvasTexture(src) : new Texture(src)
+  t.needsUpdate = true
   t.colorSpace = srgb ? SRGBColorSpace : NoColorSpace
   t.wrapS = t.wrapT = RepeatWrapping
   t.anisotropy = 8
@@ -186,8 +220,14 @@ function filtered(img: HTMLImageElement, filter: string): HTMLCanvasElement {
 
 /** 羽目板 (幅150・V溝) を ash veneer から合成。1.5m 角で 10 枚 */
 function boards(src: HTMLImageElement, filter: string, size: number, groove = true) {
-  const cv = boardsCanvas(src, filter, groove)
-  return { map: canvasTexture(cv, size), canvas: cv }
+  const key = `boards|${filter}|${groove}`
+  const img = baked(key, () => boardsCanvas(src, filter, groove))
+  return {
+    map: canvasTexture(img, size),
+    /** 凹凸マップの元。焼いた画像を使う時は凹凸も焼いてあるので作らない */
+    key,
+    canvas: () => (img instanceof HTMLCanvasElement ? img : boardsCanvas(src, filter, groove)),
+  }
 }
 
 const BOARD_ROWS = 10
@@ -220,7 +260,13 @@ function boardsCanvas(src: HTMLImageElement, filter: string, groove: boolean) {
  * 木目の濃淡を凹凸 (導管・春材) とみなし、V溝を深い溝として法線 / 粗さ / AO を作る。
  * 粗さは G、AO は R チャンネル (three の規約)
  */
-function reliefMaps(src: HTMLCanvasElement, rows: number, size: number) {
+function reliefMaps(baseKey: string, getSrc: () => HTMLCanvasElement, rows: number, size: number) {
+  const keys = ["normal", "rough", "ao"].map((k) => `relief|${k}|${baseKey}|${rows}|${size}`) as [string, string, string]
+  if (hasBaked(...keys)) {
+    const [n, r, a] = keys.map((k) => canvasTexture(bakedImages!.get(k)!, size, false))
+    return { normalMap: n!, roughnessMap: r!, aoMap: a! }
+  }
+  const src = getSrc()
   const R = 1024
   const cv = document.createElement("canvas")
   cv.width = cv.height = R
@@ -247,7 +293,7 @@ function reliefMaps(src: HTMLCanvasElement, rows: number, size: number) {
       ao[i] = occl
     }
   }
-  const make = (fill: (o: Uint8ClampedArray, i: number) => void) => {
+  const make = (key: string, fill: (o: Uint8ClampedArray, i: number) => void) => {
     const c = document.createElement("canvas")
     c.width = c.height = R
     const cx = c.getContext("2d")!
@@ -257,10 +303,11 @@ function reliefMaps(src: HTMLCanvasElement, rows: number, size: number) {
       id.data[i * 4 + 3] = 255
     }
     cx.putImageData(id, 0, 0)
+    recording?.set(key, c)
     return canvasTexture(c, size, false)
   }
   const k = 2.2
-  const normalMap = make((o, i) => {
+  const normalMap = make(keys[0], (o, i) => {
     const x = i % R
     const y = (i - x) / R
     const dx = h[y * R + ((x + 1) % R)] - h[y * R + ((x + R - 1) % R)]
@@ -274,10 +321,10 @@ function reliefMaps(src: HTMLCanvasElement, rows: number, size: number) {
     o[i * 4 + 1] = (ny * 0.5 + 0.5) * 255
     o[i * 4 + 2] = (0.5 / l + 0.5) * 255
   })
-  const roughnessMap = make((o, i) => {
+  const roughnessMap = make(keys[1], (o, i) => {
     o[i * 4] = o[i * 4 + 1] = o[i * 4 + 2] = Math.min(1, Math.max(0.2, rough[i])) * 255
   })
-  const aoMap = make((o, i) => {
+  const aoMap = make(keys[2], (o, i) => {
     o[i * 4] = o[i * 4 + 1] = o[i * 4 + 2] = ao[i] * 255
   })
   cv.width = cv.height = 0
@@ -286,6 +333,10 @@ function reliefMaps(src: HTMLCanvasElement, rows: number, size: number) {
 
 /** 壁・天井クロスの織り目エンボス (細かなノイズの凹凸)。0.5m 角でタイル */
 function clothNormal(seed: number) {
+  return canvasTexture(baked(`cloth|${seed}`, () => clothNormalCanvas(seed)), 0.5, false)
+}
+
+function clothNormalCanvas(seed: number) {
   const R = 512
   const rnd = seeded(seed)
   const h = new Float32Array(R * R)
@@ -316,11 +367,15 @@ function clothNormal(seed: number) {
     }
   }
   cx.putImageData(id, 0, 0)
-  return canvasTexture(c, 0.5, false)
+  return c
 }
 
 /** ファブリックの柄を無彩色にして平均 0.5 (リニア ≒ 0.21) に揃える。色はマテリアルの color で付ける */
 function grayFabric(img: HTMLImageElement, size: number) {
+  return canvasTexture(baked("grayFabric", () => grayFabricCanvas(img)), size)
+}
+
+function grayFabricCanvas(img: HTMLImageElement) {
   const cv = document.createElement("canvas")
   cv.width = img.width
   cv.height = img.height
@@ -337,21 +392,30 @@ function grayFabric(img: HTMLImageElement, size: number) {
     d[i] = d[i + 1] = d[i + 2] = v
   }
   ctx.putImageData(id, 0, 0)
-  return canvasTexture(cv, size)
+  return cv
 }
 
 /** 突板1枚貼り (建具の白杢)。木目方向 = テクスチャの U。元画像の解像度のまま使う */
 function veneer(src: HTMLImageElement, filter: string, size: number) {
-  const cv = document.createElement("canvas")
-  cv.width = src.width
-  cv.height = src.height
-  const ctx = cv.getContext("2d")!
-  withFiltered(src, filter, (img) => ctx.drawImage(img, 0, 0))
-  return canvasTexture(cv, size)
+  return canvasTexture(
+    baked(`veneer|${filter}`, () => {
+      const cv = document.createElement("canvas")
+      cv.width = src.width
+      cv.height = src.height
+      const ctx = cv.getContext("2d")!
+      withFiltered(src, filter, (img) => ctx.drawImage(img, 0, 0))
+      return cv
+    }),
+    size,
+  )
 }
 
 /** 木調タイルデッキ: 600 角を 4×4 枚 (2.4m 角)。タイルごとに木目を切り出し、正方形の目地を引く */
 function deckTiles(src: HTMLImageElement, filter: string, size: number) {
+  return canvasTexture(baked(`deck|${filter}`, () => deckTilesCanvas(src, filter)), size)
+}
+
+function deckTilesCanvas(src: HTMLImageElement, filter: string) {
   const S = 1024
   const n = 4
   const t = S / n
@@ -373,7 +437,7 @@ function deckTiles(src: HTMLImageElement, filter: string, size: number) {
     ctx.fillRect(i * t, 0, g, S)
     ctx.fillRect(0, i * t, S, g)
   }
-  return canvasTexture(cv, size)
+  return cv
 }
 
 /**
@@ -381,6 +445,10 @@ function deckTiles(src: HTMLImageElement, filter: string, size: number) {
  * 平面投影 UV で壁の端・床から目地が始まる
  */
 function wallTiles(base: [number, number, number], cols: number, rows: number, size: number, seed: number) {
+  return canvasTexture(baked(`wallTiles|${base}|${cols}|${rows}|${size}|${seed}`, () => wallTilesCanvas(base, cols, rows, size, seed)), size)
+}
+
+function wallTilesCanvas(base: [number, number, number], cols: number, rows: number, size: number, seed: number) {
   const S = 1024
   const cv = document.createElement("canvas")
   cv.width = cv.height = S
@@ -426,11 +494,15 @@ function wallTiles(base: [number, number, number], cols: number, rows: number, s
   for (let j = 0; j < rows; j++) ctx.fillRect(0, j * th - joint / 2, S, joint)
   ctx.fillRect(S - joint / 2, 0, joint, S)
   ctx.fillRect(0, S - joint / 2, S, joint)
-  return canvasTexture(cv, size)
+  return cv
 }
 
 /** モルタル / 石目: コテムラ (大きなぼかし斑) + 細かな骨材ノイズ */
 function mottled(base: [number, number, number], blob: number, grain: number, size: number, seed: number) {
+  return canvasTexture(baked(`mottled|${base}|${blob}|${grain}|${seed}`, () => mottledCanvas(base, blob, grain, seed)), size)
+}
+
+function mottledCanvas(base: [number, number, number], blob: number, grain: number, seed: number) {
   const S = 1024
   const cv = document.createElement("canvas")
   cv.width = cv.height = S
@@ -464,7 +536,7 @@ function mottled(base: [number, number, number], blob: number, grain: number, si
     d[i + 2] += n
   }
   ctx.putImageData(id, 0, 0)
-  return canvasTexture(cv, size)
+  return cv
 }
 
 export type UVMode = "plan" | "vertical"
@@ -487,7 +559,7 @@ export interface MaterialLib {
 export function createMaterials(tex: TextureSet, opt: MaterialOptions): MaterialLib {
   const wood = boards(tex.ash, "brightness(1.36) sepia(0.12) saturate(0.8)", 1.5)
   const woodTex = wood.map
-  const woodRelief = opt.detail ? reliefMaps(wood.canvas, BOARD_ROWS, 1.5) : undefined
+  const woodRelief = opt.detail ? reliefMaps(wood.key, wood.canvas, BOARD_ROWS, 1.5) : undefined
   const walnutTex = boards(tex.ash, "brightness(0.55) sepia(0.9) saturate(1.6) hue-rotate(-12deg)", 0.8, false).map
   const doorTex = veneer(tex.ash, "brightness(1.62) saturate(0.2) contrast(0.82)", 1.2)
   const oakDoorTex = veneer(tex.ash, "brightness(0.95) sepia(0.42) saturate(1.2) hue-rotate(-8deg)", 0.85)
@@ -870,7 +942,15 @@ function tileFbm(S: number, cells: number, octaves: number, rnd: () => number) {
   return out
 }
 
-function stoneMapsOf(spec: StoneSpec) {
+function stoneMapsOf(kind: StoneKind) {
+  const spec = STONES[kind]
+  const keys = [`stone|map|${kind}`, `stone|normal|${kind}`] as const
+  if (hasBaked(...keys)) {
+    return {
+      map: canvasTexture(bakedImages!.get(keys[0])!, spec.size, true),
+      normalMap: canvasTexture(bakedImages!.get(keys[1])!, spec.size, false),
+    }
+  }
   const S = 1024
   const pxPerMm = S / (spec.size * 1000)
   const rnd = seeded(spec.seed)
@@ -917,7 +997,7 @@ function stoneMapsOf(spec: StoneSpec) {
       }
     }
   }
-  const make = (fill: (d: Uint8ClampedArray, i: number) => void, srgb: boolean) => {
+  const make = (fill: (d: Uint8ClampedArray, i: number) => void, srgb: boolean, key: string) => {
     const cv = document.createElement("canvas")
     cv.width = cv.height = S
     const ctx = cv.getContext("2d")!
@@ -927,13 +1007,14 @@ function stoneMapsOf(spec: StoneSpec) {
       id.data[i * 4 + 3] = 255
     }
     ctx.putImageData(id, 0, 0)
+    recording?.set(key, cv)
     return canvasTexture(cv, spec.size, srgb)
   }
   const map = make((d, i) => {
     d[i * 4] = r[i]
     d[i * 4 + 1] = g[i]
     d[i * 4 + 2] = b[i]
-  }, true)
+  }, true, keys[0])
   const k = spec.relief
   const normalMap = make((d, i) => {
     const x = i % S
@@ -944,17 +1025,19 @@ function stoneMapsOf(spec: StoneSpec) {
     d[i * 4] = (nx / l * 0.5 + 0.5) * 255
     d[i * 4 + 1] = (ny / l * 0.5 + 0.5) * 255
     d[i * 4 + 2] = (0.5 / l + 0.5) * 255
-  }, false)
+  }, false, keys[1])
   return { map, normalMap }
 }
 
 /** 画質を切り替えても作り直さない。iOS のキャンバス上限に配慮し、選ばれた柄だけを初回に生成する */
 const stoneCache = new Map<StoneKind, { map: Texture; normalMap: Texture }>()
 
+export const STONE_KINDS = ["soil", "stonegray", "genshou", "mikage"] as const satisfies readonly StoneKind[]
+
 export function stoneMaps(kind: StoneKind) {
   let m = stoneCache.get(kind)
   if (!m) {
-    m = stoneMapsOf(STONES[kind])
+    m = stoneMapsOf(kind)
     stoneCache.set(kind, m)
   }
   return m
@@ -1017,4 +1100,25 @@ export function applyWorldUV(mesh: Mesh, mode: UVMode = "plan") {
     uv[i * 2 + 1] = v
   }
   g.setAttribute("uv", new BufferAttribute(uv, 2))
+}
+
+/** ?bake=1 の時だけ: scripts/bake-textures.cjs から呼ばれ、生成したテクスチャを WebP で返す (等倍とスマホ用の半分) */
+if (typeof window !== "undefined" && new URLSearchParams(location.search).get("bake") === "1") {
+  const encode = (cv: HTMLCanvasElement, scale: number) => {
+    const out = document.createElement("canvas")
+    out.width = Math.max(1, Math.round(cv.width * scale))
+    out.height = Math.max(1, Math.round(cv.height * scale))
+    const ctx = out.getContext("2d")!
+    ctx.imageSmoothingQuality = "high"
+    ctx.drawImage(cv, 0, 0, out.width, out.height)
+    return out.toDataURL("image/webp", 0.9)
+  }
+  ;(window as unknown as { __ldkBake: () => { key: string; full: string; half: string }[] }).__ldkBake = () => {
+    for (const kind of STONE_KINDS) stoneMaps(kind)
+    return [...(recording ?? new Map<string, HTMLCanvasElement>()).entries()].map(([key, cv]) => ({
+      key,
+      full: encode(cv, 1),
+      half: encode(cv, 0.5),
+    }))
+  }
 }

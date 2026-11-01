@@ -74,6 +74,20 @@ function PreloadOther({ ceiling }: { ceiling: 2.5 | 2.7 }) {
   return null
 }
 
+/** 家が最初に描けたら知らせる (読み込み表示を消す合図) */
+function FirstFrame({ onDrawn }: { onDrawn: () => void }) {
+  const invalidate = useThree((s) => s.invalidate)
+  const done = useRef(false)
+  useEffect(() => invalidate(), [invalidate])
+  useFrame(() => {
+    if (done.current) return
+    done.current = true
+    // この描画が終わってから (次のフレームで) 消す
+    requestAnimationFrame(() => onDrawn())
+  })
+  return null
+}
+
 function Exposure({ value }: { value: number }) {
   const gl = useThree((s) => s.gl)
   const invalidate = useThree((s) => s.invalidate)
@@ -118,7 +132,17 @@ function AdaptiveDpr({ max }: { max: number }) {
   return null
 }
 
-export function Viewer({ s, doorOverride, onToggleDoor }: { s: Settings; doorOverride: DoorOverride; onToggleDoor: (id: string) => void }) {
+export function Viewer({
+  s,
+  doorOverride,
+  onToggleDoor,
+  onDrawn,
+}: {
+  s: Settings
+  doorOverride: DoorOverride
+  onToggleDoor: (id: string) => void
+  onDrawn: () => void
+}) {
   const pano = s.mode === "pano" ? DATA.panos[s.pano] : undefined
   const eye = EYE_HEIGHT[s.eye]
   const q = qualityProfile(s.quality, MOBILE)
@@ -175,6 +199,7 @@ export function Viewer({ s, doorOverride, onToggleDoor }: { s: Settings; doorOve
           ))}
           {q.reflector && <FloorReflector />}
           <PreloadOther ceiling={s.ceiling} />
+          <FirstFrame key={s.ceiling} onDrawn={onDrawn} />
           <Effects q={q} day={day} tone={s.tone} />
           {ptOn && (
             <Suspense fallback={null}>
