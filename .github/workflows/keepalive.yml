@@ -1,0 +1,19 @@
+name: keepalive
+
+# Supabase 無料プランの一時停止を避けるため、本番の /api/keepalive を定期的に呼ぶ。
+# Vercel Cron（1日1回）だけでは停止予告のメールが来たので、別経路で回数を増やす。
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call keepalive
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            --retry 3 --retry-delay 10 --retry-all-errors \
+            https://iezukuri-notes.vercel.app/api/keepalive
