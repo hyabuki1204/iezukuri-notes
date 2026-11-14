@@ -30,7 +30,7 @@
       ]
     },
     {
-      "source": "/ldk/(models|lightmaps|textures|panos)/(.*)",
+      "source": "/ldk/(models|lightmaps|textures|panos|baked)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

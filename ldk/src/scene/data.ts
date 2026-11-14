@@ -139,7 +139,7 @@ export const MODEL_URL: Record<CeilingHeight, string> = {
 export const MOBILE = matchMedia("(pointer: coarse)").matches
 
 export function lightmapUrl(ceiling: CeilingHeight) {
-  return asset(`lightmaps/ldk_${Math.round(ceiling * 1000)}${MOBILE ? "_1k" : ""}.png`)
+  return asset(`lightmaps/ldk_${Math.round(ceiling * 1000)}${MOBILE ? "_1k" : ""}.webp`)
 }
 
 export function probeUrl(ceiling: CeilingHeight) {

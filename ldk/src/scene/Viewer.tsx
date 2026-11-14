@@ -1,10 +1,10 @@
-import { SoftShadows } from "@react-three/drei"
+import { SoftShadows, useEnvironment, useTexture } from "@react-three/drei"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from "@react-three/postprocessing"
 import { ToneMappingMode } from "postprocessing"
 import { lazy, Suspense, useEffect, useRef } from "react"
 import { NoToneMapping, PCFShadowMap, VSMShadowMap } from "three"
-import { DATA, type DoorOverride, EYE_HEIGHT, hasLightmap, MOBILE, panoUrl, type Settings } from "./data"
+import { asset, DATA, type DoorOverride, EYE_HEIGHT, hasLightmap, MOBILE, panoUrl, probeUrl, type Settings } from "./data"
 import { FloorReflector } from "./FloorReflector"
 import { LdkModel, preloadModel } from "./LdkModel"
 import { Lighting } from "./Lighting"
@@ -151,6 +151,13 @@ export function Viewer({
   const exposure = EXPOSURE[s.tone][baked ? "baked" : s.time]
   const ptOn = s.pt === "on" && s.quality !== "low" && !pano
   const doorKey = Object.entries(doorOverride).sort().map(([k, v]) => `${k}:${v}`).join(",")
+  // 3D の素材をすべて同時に読み始める (Suspense の順番待ちで通信が空かないように)
+  useEffect(() => {
+    if (pano) return
+    preloadModel(s.ceiling, q)
+    useTexture.preload(asset(day ? "textures/suburban_garden_sky.jpg" : "textures/moonlit_golf_sky.jpg"))
+    if (baked) useEnvironment.preload({ files: probeUrl(s.ceiling) })
+  }, [pano, s.ceiling, q, day, baked])
   const sceneKey = [s.ceiling, s.ceilColor, s.kitchen, s.counter, s.board, s.curtain, s.doors, doorKey, s.time, s.lights, s.quality].join("|")
   return (
     <Canvas

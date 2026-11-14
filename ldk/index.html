@@ -9,9 +9,41 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="LDK ウォークスルー" />
     <title>LDK ウォークスルー ｜ 天井高 2.5m / 2.7m 検証</title>
+    <script>
+      // 一番大きい 3D モデル (とスマホのライトマップ) は、JS の読み込み・起動を待たずに読み始める。
+      // URL は data.ts の MODEL_URL / lightmapUrl と同じ。three の読み込み (fetch / crossOrigin=anonymous の img) と一致させて二重取得を防ぐ
+      ;(function () {
+        var q = new URLSearchParams(location.search)
+        if (q.get("mode") === "pano") return
+        var h = q.get("ceiling") === "2.7" ? "2700" : "2500"
+        var mobile = matchMedia("(pointer: coarse)").matches
+        var quality = q.get("q") || q.get("quality") || "medium"
+        var base = "%BASE_URL%"
+        function pre(href, as) {
+          var l = document.createElement("link")
+          l.rel = "preload"
+          l.as = as
+          l.href = base + href
+          l.crossOrigin = "anonymous"
+          // アプリの JS を先に受け取れるよう優先度は下げる (読み込み表示が遅れないように)
+          l.setAttribute("fetchpriority", "low")
+          document.head.appendChild(l)
+        }
+        pre("models/ldk_" + h + ".glb", "fetch")
+        if (quality !== "low") pre("lightmaps/ldk_" + h + (mobile ? "_1k" : "") + ".webp", "image")
+      })()
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- JS が届くまでの読み込み表示 (React が描画すると置き換わる。見た目は LoadingOverlay と同じ) -->
+      <div style="position: fixed; inset: 0; display: grid; place-items: center; background: #0a0a0a; color: rgba(255, 255, 255, 0.9); font: 14px/1.5 system-ui, sans-serif; letter-spacing: 0.025em">
+        <div style="width: 18rem; text-align: center">
+          <p style="margin: 0 0 12px">3Dモデルとテクスチャを読み込んでいます</p>
+          <div style="height: 4px; border-radius: 9999px; background: rgba(255, 255, 255, 0.15)"></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

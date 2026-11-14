@@ -60,16 +60,34 @@ const SCAN_TEXTURES = [
   "concrete_worn_rough",
 ].map((n) => `textures/${n}${MOBILE ? "_512" : ""}.jpg`)
 
+/**
+ * 読み込むファイルの組。useTexture / useLoader は URL の配列ごとにキャッシュするので、
+ * 先読み (preloadModel) と同じ配列を渡す
+ */
+function textureUrls(q: QualityProfile) {
+  const base = [...floorTextures(!MOBILE && q.hiResTextures), ...SHRUB_TEXTURES]
+  return (q.detailMaps ? [...base, ...DETAIL_TEXTURES, ...SCAN_TEXTURES] : base).map(asset)
+}
+function sourceUrls(q: QualityProfile) {
+  return (q.detailMaps ? ["textures/ash_veneer_diff.jpg", "textures/rough_linen_diff.jpg"] : ["textures/ash_veneer_diff.jpg"]).map(asset)
+}
+function imageUrls(q: QualityProfile) {
+  return [...sourceUrls(q), ...BAKED_URLS]
+}
+function bakeUrls(ceiling: 2.5 | 2.7, q: QualityProfile, visible: boolean) {
+  // スマホは表示中の天井高のライトマップだけ持つ
+  const canBake = q.baked && hasLightmap(ceiling) && (visible || !MOBILE)
+  return canBake ? [lightmapUrl(ceiling), asset("textures/suburban_garden_sky.jpg")] : []
+}
+
 /** 画質を切り替えると Canvas ごと作り直すため、読み込むテクスチャの組はマウント中は変わらない */
 function useMaterialLib(q: QualityProfile): MaterialLib {
-  const base = [...floorTextures(!MOBILE && q.hiResTextures), ...SHRUB_TEXTURES]
-  const urls = (q.detailMaps ? [...base, ...DETAIL_TEXTURES, ...SCAN_TEXTURES] : base).map(asset)
-  const textures = useTexture(urls)
+  const textures = useTexture(textureUrls(q))
   const [floorDiff, floorNor, floorRough] = textures
   const [linenNor, grassNor] = textures.slice(BASE_COUNT)
   const scan = q.detailMaps ? textures.slice(BASE_COUNT + DETAIL_TEXTURES.length) : undefined
-  const sources = (q.detailMaps ? ["textures/ash_veneer_diff.jpg", "textures/rough_linen_diff.jpg"] : ["textures/ash_veneer_diff.jpg"]).map(asset)
-  const all = useLoader(ImageLoader, [...sources, ...BAKED_URLS])
+  const sources = sourceUrls(q)
+  const all = useLoader(ImageLoader, imageUrls(q))
   const images = all.slice(0, sources.length)
   const bakedList = all.slice(sources.length)
   return useMemo(() => {
@@ -271,9 +289,9 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
     gl.shadowMap.needsUpdate = true
     invalidate()
   }, [gl, invalidate])
-  // スマホは表示中の天井高のライトマップだけ持つ
-  const canBake = q.baked && hasLightmap(ceiling) && (visible || !MOBILE)
-  const [lm, sky] = useTexture(canBake ? [lightmapUrl(ceiling), asset("textures/suburban_garden_sky.jpg")] : []) as Texture[]
+  const bakeList = bakeUrls(ceiling, q, visible)
+  const canBake = bakeList.length > 0
+  const [lm, sky] = useTexture(bakeList) as Texture[]
   const { root, slots, board: boardMesh } = useMemo(() => {
     const r = scene.clone(true)
     const slots = mergeStatic(
@@ -355,7 +373,18 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
   return <primitive object={root} visible={visible} />
 }
 
-/** もう片方の天井高のモデルは、表示が落ち着いてから先読みする (PC のみ。スマホは切り替えた時に読む) */
-export function preloadModel(ceiling: 2.5 | 2.7) {
+/**
+ * もう片方の天井高のモデルは、表示が落ち着いてから先読みする (PC のみ。スマホは切り替えた時に読む)。
+ *
+ * q を渡すと、表示に使うテクスチャ・ライトマップも一斉に読み始める。
+ * 何もしないと Suspense で「モデル → テクスチャ → 画像 → ライトマップ」と順番待ちになり、
+ * そのぶん通信が空く (計測: スマホ Fast 4G で 4 段の直列)
+ */
+export function preloadModel(ceiling: 2.5 | 2.7, q?: QualityProfile) {
   useGLTF.preload(MODEL_URL[ceiling])
+  if (!q) return
+  useTexture.preload(textureUrls(q))
+  useLoader.preload(ImageLoader, imageUrls(q))
+  const lm = bakeUrls(ceiling, q, true)
+  if (lm.length) useTexture.preload(lm)
 }
