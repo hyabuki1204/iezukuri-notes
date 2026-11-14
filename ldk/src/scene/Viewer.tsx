@@ -158,7 +158,7 @@ export function Viewer({
     useTexture.preload(asset(day ? "textures/suburban_garden_sky.jpg" : "textures/moonlit_golf_sky.jpg"))
     if (baked) useEnvironment.preload({ files: probeUrl(s.ceiling) })
   }, [pano, s.ceiling, q, day, baked])
-  const sceneKey = [s.ceiling, s.ceilColor, s.kitchen, s.counter, s.board, s.curtain, s.doors, doorKey, s.time, s.lights, s.quality].join("|")
+  const sceneKey = [s.ceiling, s.ceilColor, s.kitchen, s.counter, s.board, s.curtain, s.doors, doorKey, s.time, s.lights, s.tv, s.niche, s.quality].join("|")
   return (
     <Canvas
       key={s.quality}
@@ -201,6 +201,8 @@ export function Viewer({
               doors={s.doors}
               doorOverride={doorOverride}
               time={s.time}
+              tv={s.tv}
+              niche={s.niche === "on"}
               q={q}
             />
           ))}

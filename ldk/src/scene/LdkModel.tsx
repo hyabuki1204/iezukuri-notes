@@ -32,11 +32,15 @@ import {
   MODEL_URL,
   toThree,
   type TimeOfDay,
+  tvCenterY,
+  TV_SIZES,
+  type TvSize,
 } from "./data"
 import { SKY_ROTATION } from "./Lighting"
 import { patchMaterial } from "./patch"
 import bakedManifest from "./bakedTextures.json"
 import { applyWorldUV, BOARD_PALETTE, COUNTER_PALETTE, createMaterials, KITCHEN_PALETTE, kitchenMaterialFor, type MaterialLib, setBakedImages, setStone, startBakeRecording } from "./materials"
+import { buildFurring, placeArm, TV_SHIFT } from "./furring"
 import { mergeStatic } from "./merge"
 import { setCollision } from "./player"
 import type { QualityProfile } from "./quality"
@@ -243,9 +247,38 @@ const CURTAIN_GROUPS = {
   drapeClosed: /^ドレープ閉/,
 }
 
+/** 東壁の TV (画面と額縁)。大きさを切り替えるので、まとめずに残して実行時に拡大・移動する */
+const TV_MESH = /^TV_(本体|枠)$/
+/** TV 裏の大判タイル。ふかし壁を出すときに隠す。フロアランプはふかし壁に当たらないよう手前へずらす */
+const TV_WALL = /^(TV壁_大判タイル|ランプ_(ベース|ポール|シェード))$/
+const LAMP = /^ランプ_/
+/** ふかし壁を出したときのフロアランプの移動量 (シェードの東端 x=6.88 を壁面 6.83 より手前へ) */
+const LAMP_SHIFT = -0.1
+
 /** 開閉・表示切替するもの。まとめずに個別のまま残す */
 function isToggled(o: Object3D): boolean {
-  return !!doorLeaf(o.name) || Object.values(CURTAIN_GROUPS).some((re) => re.test(o.name))
+  return !!doorLeaf(o.name) || TV_MESH.test(o.name) || TV_WALL.test(o.name) || Object.values(CURTAIN_GROUPS).some((re) => re.test(o.name))
+}
+
+/**
+ * モデルの TV は 65 型 (頂点はワールド座標のまま、変換なし)。高さ・幅をそれぞれ伸ばし、
+ * 画面中心の高さ (P.TV[1]) は保ったまま、南北の中心だけ動かす。奥行きはそのまま。
+ * ニッチを出すときは、ふかし壁の前面からアームで浮かせた位置へ下げる
+ */
+function placeTv(meshes: Object3D[], size: TvSize, niche: boolean) {
+  const base = TV_SIZES[65]
+  const t = TV_SIZES[size]
+  const [by, bz] = DATA.P.TV
+  const sy = t.h / base.h
+  const sw = t.w / base.w
+  const y = tvCenterY(size, niche)
+  for (const m of meshes) {
+    // Blender (y北, z上) -> three (z = -y, y = z)
+    m.scale.set(1, sy, sw)
+    m.position.set(niche ? TV_SHIFT : 0, bz * (1 - sy), -y + by * sw)
+    m.updateMatrix()
+    m.updateMatrixWorld(true)
+  }
 }
 
 function applyVisibility(root: Object3D, curtain: CurtainState, time: TimeOfDay, doors: DoorState, override: DoorOverride) {
@@ -276,10 +309,12 @@ interface Props {
   doors: DoorState
   doorOverride: DoorOverride
   time: TimeOfDay
+  tv: TvSize
+  niche: boolean
   q: QualityProfile
 }
 
-export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board, curtain, doors, doorOverride, time, q }: Props) {
+export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board, curtain, doors, doorOverride, time, tv, niche, q }: Props) {
   const { scene } = useGLTF(MODEL_URL[ceiling])
   const lib = useMaterialLib(q)
   const invalidate = useThree((s) => s.invalidate)
@@ -292,18 +327,45 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
   const bakeList = bakeUrls(ceiling, q, visible)
   const canBake = bakeList.length > 0
   const [lm, sky] = useTexture(bakeList) as Texture[]
-  const { root, slots, board: boardMesh } = useMemo(() => {
+  const { root, slots, board: boardMesh, tvMeshes, furring, lamp } = useMemo(() => {
     const r = scene.clone(true)
+    const prepared = prepare(r, lib)
+    // ライトマップ UV を写すので、元の東壁がまとめられる前に作る
+    const furring = buildFurring(r, lib)
     const slots = mergeStatic(
       r,
-      prepare(r, lib).map((s) => ({ ...s, key: `${s.name}|${s.ceiling}|${s.lightmapped}|${s.exterior}` })),
+      prepared.map((s) => ({ ...s, key: `${s.name}|${s.ceiling}|${s.lightmapped}|${s.exterior}` })),
       isToggled,
       (s, mesh) => ({ ...s, mesh }),
     )
+    if (furring) {
+      r.add(furring.group)
+      for (const p of furring.parts) slots.push({ ...p, ceiling: false, exterior: false, key: "" })
+    }
     const b = kitchenBoard(lib, ceiling)
     r.add(b)
-    return { root: r, slots, board: b }
+    const tvMeshes: Object3D[] = []
+    const lamp: Object3D[] = []
+    r.traverse((o) => {
+      if (TV_MESH.test(o.name)) tvMeshes.push(o)
+      if (LAMP.test(o.name)) lamp.push(o)
+    })
+    return { root: r, slots, board: b, tvMeshes, furring, lamp }
   }, [scene, lib, ceiling])
+
+  useEffect(() => {
+    placeTv(tvMeshes, tv, niche)
+    if (furring) {
+      furring.group.visible = niche
+      furring.tile.visible = !niche
+      placeArm(furring.arm, tvCenterY(tv, niche), DATA.P.TV[1])
+      for (const o of lamp) {
+        o.position.x = niche ? LAMP_SHIFT : 0
+        o.updateMatrixWorld(true)
+      }
+    }
+    refresh()
+  }, [tvMeshes, furring, lamp, tv, niche, refresh])
 
   useEffect(() => {
     boardMesh.visible = board !== "none"
@@ -337,7 +399,7 @@ export function LdkModel({ ceiling, ceilColor, visible, kitchen, counter, board,
 
   useEffect(() => {
     if (visible) setCollision(root)
-  }, [root, visible, doors, doorOverride])
+  }, [root, visible, doors, doorOverride, tv, niche])
 
   useEffect(() => {
     for (const s of slots) {

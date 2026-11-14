@@ -27,13 +27,15 @@ const DEFAULTS: Settings = {
   eye: "stand",
   fov: 68,
   pano: "p2",
+  tv: 65,
+  niche: "off",
   quality: DEFAULT_QUALITY,
   tone: "agx",
   // 静止時パストレースは高性能な GPU でないと重いので、URL (?pt=on) で指定したときだけ
   pt: "off",
 }
 
-/** URL で条件を指定できる (例: ?ceiling=2.7&ceilColor=white&time=night&lights=off&view=v3&panel=0&q=ultra&tone=aces) */
+/** URL で条件を指定できる (例: ?ceiling=2.7&ceilColor=white&time=night&lights=off&tv=85&view=v3&panel=0&q=ultra&tone=aces) */
 const QUERY = new URLSearchParams(location.search)
 
 function initialSettings(): Settings {
@@ -57,6 +59,8 @@ function initialSettings(): Settings {
   pick("eye", ["stand", "sit"])
   pick("fov", [])
   pick("pano", Object.keys(DATA.panos))
+  pick("tv", [65, 75, 85])
+  pick("niche", ["on", "off"])
   pick("quality", ["low", "medium", "ultra"])
   const q = QUERY.get("q")
   if (q === "low" || q === "medium" || q === "ultra") s.quality = q
@@ -267,7 +271,7 @@ export default function App() {
           {coarse && s.mode === "walk" && <Joystick />}
           {!fs.full && (
             <div className="rounded-xl border border-white/10 bg-black/45 p-2 backdrop-blur-md">
-              <Minimap mode={s.mode} pano={s.pano} onPano={onPano} className="block w-40 md:w-56 short:w-32!" />
+              <Minimap mode={s.mode} pano={s.pano} tv={s.tv} niche={s.niche} onPano={onPano} className="block w-40 md:w-56 short:w-32!" />
               <p className="px-1 pt-1 text-[10px] text-white/45 short:hidden">{s.mode === "pano" ? `番号を${coarse ? "タップ" : "クリック"}で地点移動` : `${coarse ? "タップ" : "クリック"}でその位置へ移動`}</p>
             </div>
           )}

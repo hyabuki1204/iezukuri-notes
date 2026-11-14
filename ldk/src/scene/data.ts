@@ -26,6 +26,39 @@ export function doorLeaf(name: string): { id: string; open: boolean } | null {
 export type TimeOfDay = "day" | "night"
 export type LightState = "on" | "off"
 export type ViewMode = "walk" | "pano"
+/** 東壁の壁掛け TV (型) */
+export type TvSize = 65 | 75 | 85
+
+/**
+ * TV の外形 (ベゼル込み、m) と南北の中心 (Blender y)。画面中心の高さは 65 型と同じ床上 1.05m。
+ * 75・85 型は背面の大判タイル (P.TILE) の中央に寄せる (85 型は 65 型の位置だとタイル北端からはみ出す)
+ */
+export const TV_SIZES: Record<TvSize, { w: number; h: number; y: number }> = {
+  65: { w: 1.45, h: 0.83, y: 1.37 },
+  75: { w: 1.68, h: 0.97, y: 1.18 },
+  85: { w: 1.9, h: 1.08, y: 1.18 },
+}
+
+/**
+ * TV 裏のニッチ。東壁 (x=7.0) の前を FURRING だけ LDK 側へふかし (壁面 x=6.85)、そこに彫り込む。
+ * ふかしは南の角 (y=0) からホール扉の枠の手前 (y1) まで。TV はふかし壁の前面から standoff 浮かせる (アーム金具)
+ */
+export const NICHE = {
+  furring: 0.15,
+  y1: 2.41,
+  w: 1.35,
+  h: 0.75,
+  depth: 0.12,
+  /** 中心 (Blender y / 床からの高さ)。タイル面の中央 */
+  y: 1.18,
+  z: 1.05,
+  standoff: 0.08,
+} as const
+
+/** TV の南北の中心 (Blender y)。ニッチを出すときはニッチの中心に合わせて掛ける */
+export function tvCenterY(size: TvSize, niche: boolean) {
+  return niche ? NICHE.y : TV_SIZES[size].y
+}
 
 export interface Settings {
   mode: ViewMode
@@ -41,6 +74,10 @@ export interface Settings {
   eye: "stand" | "sit"
   fov: number
   pano: string
+  /** TV の大きさ (ウォークスルーのみ。360° パノラマは 65 型で焼いてある) */
+  tv: TvSize
+  /** TV 裏のふかし壁 + ニッチ (ウォークスルーのみ) */
+  niche: "on" | "off"
   quality: Quality
   tone: ToneMap
   /** 静止時のパストレース */

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
-import { DATA, ROOM, type ViewMode } from "@/scene/data"
+import { DATA, NICHE, ROOM, tvCenterY, TV_SIZES, type TvSize, type ViewMode } from "@/scene/data"
 import { player, teleport } from "@/scene/player"
 
 const PAD = 0.45
@@ -28,11 +28,13 @@ function doorLine(d: Pick<(typeof DATA.doors)[number], "wall" | "a0" | "a1">) {
 interface Props {
   mode: ViewMode
   pano: string
+  tv: TvSize
+  niche: "on" | "off"
   onPano: (key: string) => void
   className?: string
 }
 
-export function Minimap({ mode, pano, onPano, className }: Props) {
+export function Minimap({ mode, pano, tv, niche, onPano, className }: Props) {
   const arrow = useRef<SVGGElement>(null)
   const svg = useRef<SVGSVGElement>(null)
 
@@ -81,7 +83,13 @@ export function Minimap({ mode, pano, onPano, className }: Props) {
   const [sf0, sf1, sfy0, sfy1] = DATA.P.SOFA
   const [ocx, ocy, orx, ory] = DATA.P.COFFEE
   const [c0, c1, cy0, cy1] = DATA.P.COUNTER
-  const [tvy] = DATA.P.TV
+  // パノラマは 65 型・ふかし壁なしで焼いてあるので、平面図もそれに合わせる
+  const walk = mode !== "pano"
+  const t = TV_SIZES[walk ? tv : 65]
+  const furred = walk && niche === "on"
+  const tvY = tvCenterY(walk ? tv : 65, furred)
+  // TV の画面の位置 (x)。ふかし壁のときは前面からアームで浮かせる
+  const tvX = furred ? ROOM.W - NICHE.furring - 0.02 - NICHE.standoff - 0.02 : ROOM.W - 0.05
 
   return (
     <svg
@@ -103,7 +111,13 @@ export function Minimap({ mode, pano, onPano, className }: Props) {
       <Rect r={[sf0, sf1, sfy0, sfy1]} className="fill-white/25" />
       <Rect r={[sf1, DATA.P.CHAISE_X, sfy1 - 0.95, sfy1]} className="fill-white/25" />
       <ellipse cx={sx(ocx)} cy={sy(ocy)} rx={orx} ry={ory} className="fill-white/20" />
-      <line x1={sx(ROOM.W - 0.05)} x2={sx(ROOM.W - 0.05)} y1={sy(tvy - 0.72)} y2={sy(tvy + 0.72)} className="stroke-white" strokeWidth={0.07} />
+      {furred && (
+        <>
+          <Rect r={[ROOM.W - NICHE.furring, ROOM.W, 0, NICHE.y1]} className="fill-white/40" />
+          <Rect r={[ROOM.W - NICHE.furring, ROOM.W - NICHE.furring + NICHE.depth, NICHE.y - NICHE.w / 2, NICHE.y + NICHE.w / 2]} className="fill-neutral-700" />
+        </>
+      )}
+      <line x1={sx(tvX)} x2={sx(tvX)} y1={sy(tvY - t.w / 2)} y2={sy(tvY + t.w / 2)} className="stroke-white" strokeWidth={0.07} />
       {[[sa0, sa1], [sb0, sb1]].map(([a, b]) => (
         <line key={a} x1={sx(a)} x2={sx(b)} y1={sy(-0.08)} y2={sy(-0.08)} className="stroke-sky-300" strokeWidth={0.1} />
       ))}

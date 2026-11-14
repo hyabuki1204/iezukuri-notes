@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-import { DATA, type Settings } from "@/scene/data"
+import { DATA, NICHE, type Settings, TV_SIZES } from "@/scene/data"
 import { QUALITY_LABEL, type Quality } from "@/scene/quality"
 
 type Opt<T extends string | number> = { value: T; label: string }
@@ -237,6 +237,33 @@ export function ControlPanel({ s, set, touring, onTour, onPreset, onReset, panoA
           />
         </Row>
       </div>
+      <Row label="TV" hint={pano ? "ウォークスルーのみ (360°は65型)" : "東壁・ベゼル込み外形"}>
+        <Segmented
+          value={pano ? 65 : s.tv}
+          disabled={pano}
+          onChange={(tv) => set({ tv })}
+          options={[
+            { value: 65, label: "65型" },
+            { value: 75, label: "75型" },
+            { value: 85, label: "85型" },
+          ]}
+        />
+        {!pano && <p className="text-[11px] text-white/45">{`幅 ${TV_SIZES[s.tv].w.toFixed(2)} × 高さ ${TV_SIZES[s.tv].h.toFixed(2)} m`}</p>}
+      </Row>
+      <Row label="TV 裏ニッチ" hint={pano ? "ウォークスルーのみ" : "ふかし壁150mm・TV はアームで8cm浮かせる"}>
+        <Segmented
+          value={pano ? "off" : s.niche}
+          disabled={pano}
+          onChange={(niche) => set({ niche })}
+          options={[
+            { value: "off", label: "非表示" },
+            { value: "on", label: "表示" },
+          ]}
+        />
+        {!pano && s.niche === "on" && (
+          <p className="text-[11px] text-white/45">{`幅 ${NICHE.w} × 高さ ${NICHE.h} × 奥行 ${NICHE.depth} m（TV はニッチの中心に掛ける）`}</p>
+        )}
+      </Row>
       <Row label="画角" hint={`${s.fov}°（人の視野に近いのは 60〜70°）`}>
         <Slider value={[s.fov]} min={45} max={95} step={1} onValueChange={(v) => set({ fov: Array.isArray(v) ? v[0] : v })} />
       </Row>
